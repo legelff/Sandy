@@ -1,18 +1,19 @@
 # Sandy
 Sandy: Tinder for pets
 
-## Website
-### Tech Stack
-- Vue.js
-- ...
-
 ## App
 ### Tech Stack
+#### System Design & Other
+- Excalidraw
+
 #### Frontend
 - React Native
 - ...
 
 #### Backend
-- ExpressJS (NodeJS)
-- Prisma ORM?
+- NodeJS (ExpressJS)
+- Prisma ORM
 - ...
+
+#### Database
+- PostgreSQL
