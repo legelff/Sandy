@@ -28,7 +28,7 @@ const upload = multer({ storage: storage });
 
 
 
-// POST /pets - Add a new pet
+// Add a new pet
 router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -43,13 +43,14 @@ router.post('/', async (req, res) => {
       comfort_with_strangers,
       vaccinations,
       sterilized,
+      species_id
     } = req.body;
 
     const insertPet = await client.query(
       `INSERT INTO pets 
-        (owner_id, name, age, breed, personality, favorite_activities_and_needs, energy_level, comfort_with_strangers, vaccinations, sterilized)
+        (owner_id, name, age, breed, personality, favorite_activities_and_needs, energy_level, comfort_with_strangers, vaccinations, sterilized, species_id)
        VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         owner_id,
@@ -62,6 +63,7 @@ router.post('/', async (req, res) => {
         comfort_with_strangers,
         vaccinations,
         sterilized,
+        species_id
       ]
     );
 
@@ -77,7 +79,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-
+//DELETE a pet
 router.delete('/:id', async (req, res) => {
     const client = await pool.connect();
     try {
@@ -134,6 +136,25 @@ router.post('/photos/:petId', upload.single('photo'), async (req, res) => {
     }
   });
   
+// GET all pets for a specific owner
+router.get('/owner/:ownerId', async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const ownerId = parseInt(req.params.ownerId);
+  
+      const result = await client.query(
+        `SELECT * FROM pets WHERE owner_id = $1 ORDER BY id ASC`,
+        [ownerId]
+      );
+  
+      res.status(200).json(result.rows);
+    } catch (err) {
+      console.error('Error fetching pets:', err);
+      res.status(500).json({ error: 'Server error', details: err.message });
+    } finally {
+      client.release();
+    }
+  });
   
   
 module.exports = router;
