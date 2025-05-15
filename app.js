@@ -8,6 +8,7 @@ require('./config/db');
 
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
+const petsRouter = require('./routes/pets');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/pets', petsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
