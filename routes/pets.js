@@ -1,14 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
 
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'Sandy',
-  password: 'mypassword',
-  port: 5432,
+    user: 'postgres',
+    host: 'localhost',
+    database: 'Sandy',
+    password: process.env.DB_PASSWORD,
+    port: 5432,
+  });
+
+// Set storage destination and filename
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // make sure this folder exists
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
+    cb(null, uniqueName);
+  }
 });
+
+const upload = multer({ storage: storage });
+
+
 
 // POST /pets - Add a new pet
 router.post('/', async (req, res) => {
@@ -94,6 +112,28 @@ router.delete('/:id', async (req, res) => {
       client.release();
     }
   });
+  
+// Add a photo for a specific pet
+router.post('/photos/:petId', upload.single('photo'), async (req, res) => {
+    const petId = parseInt(req.params.petId);
+    const photoPath = `/uploads/${req.file.filename}`; // Public URL path
+  
+    const client = await pool.connect();
+    try {
+      const result = await client.query(
+        `INSERT INTO pet_photos (url, pet_id) VALUES ($1, $2) RETURNING *`,
+        [photoPath, petId]
+      );
+  
+      res.status(201).json({ message: 'Photo uploaded.', photo: result.rows[0] });
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      res.status(500).json({ error: 'Server error', details: err.message });
+    } finally {
+      client.release();
+    }
+  });
+  
   
   
 module.exports = router;
