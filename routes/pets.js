@@ -6,7 +6,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'Sandy',
-  password: 'mypassword',
+  password: 'process.env.DB_PASSWORD',
   port: 5432,
 });
 
@@ -61,39 +61,39 @@ router.post('/', async (req, res) => {
 
 
 router.delete('/:id', async (req, res) => {
-    const client = await pool.connect();
-    try {
-      const petId = req.params.id;
-  
-      await client.query('BEGIN');
-  
-      // 1. Delete pet_photos
-      await client.query('DELETE FROM pet_photos WHERE pet_id = $1', [petId]);
-  
-      // 2. Delete pet_reviews
-      await client.query('DELETE FROM pet_reviews WHERE pet_id = $1', [petId]);
-  
-      // 3. Delete from booking_pets
-      await client.query('DELETE FROM booking_pets WHERE pet_id = $1', [petId]);
-  
-      // 4. Finally, delete the pet itself
-      const result = await client.query('DELETE FROM pets WHERE id = $1 RETURNING *', [petId]);
-  
-      if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Pet not found' });
-      }
-  
-      await client.query('COMMIT');
-      res.status(200).json({ message: 'Pet deleted successfully', pet: result.rows[0] });
-    } catch (err) {
+  const client = await pool.connect();
+  try {
+    const petId = req.params.id;
+
+    await client.query('BEGIN');
+
+    // 1. Delete pet_photos
+    await client.query('DELETE FROM pet_photos WHERE pet_id = $1', [petId]);
+
+    // 2. Delete pet_reviews
+    await client.query('DELETE FROM pet_reviews WHERE pet_id = $1', [petId]);
+
+    // 3. Delete from booking_pets
+    await client.query('DELETE FROM booking_pets WHERE pet_id = $1', [petId]);
+
+    // 4. Finally, delete the pet itself
+    const result = await client.query('DELETE FROM pets WHERE id = $1 RETURNING *', [petId]);
+
+    if (result.rows.length === 0) {
       await client.query('ROLLBACK');
-      console.error('Error deleting pet:', err);
-      res.status(500).json({ error: 'Server error', details: err.message });
-    } finally {
-      client.release();
+      return res.status(404).json({ error: 'Pet not found' });
     }
-  });
-  
-  
+
+    await client.query('COMMIT');
+    res.status(200).json({ message: 'Pet deleted successfully', pet: result.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting pet:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+
 module.exports = router;
