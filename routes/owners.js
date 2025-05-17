@@ -1,20 +1,27 @@
 var express = require('express');
 var router = express.Router();
 const { Pool } = require('pg');
+const { verifyToken } = require('../middleware/auth');
 
 // Database configuration
 const pool = new Pool({
     user: 'postgres',
     host: 'localhost',
     database: 'Sandy',
-    password: 'process.env.DB_PASSWORD',
+    password: process.env.DB_PASSWORD,
     port: 5432,
 });
 
 // Get owner profile with details
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user is requesting their own profile or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to view this profile' });
+        }
+
         const owner = await pool.query(
             `SELECT 
         po.*,
@@ -57,11 +64,17 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update owner profile
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifyToken, async (req, res) => {
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
         const { id } = req.params;
+
+        // Check if user is updating their own profile or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to update this profile' });
+        }
+
+        await client.query('BEGIN');
         const { subscription_id } = req.body;
 
         const updatedOwner = await client.query(
@@ -89,9 +102,15 @@ router.put('/:id', async (req, res) => {
 });
 
 // Get owner's bookings
-router.get('/:id/bookings', async (req, res) => {
+router.get('/:id/bookings', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user is viewing their own bookings or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to view these bookings' });
+        }
+
         const bookings = await pool.query(
             `SELECT b.*, 
               ps.id as sitter_id,

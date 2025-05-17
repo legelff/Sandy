@@ -1,20 +1,27 @@
 var express = require('express');
 var router = express.Router();
 const { Pool } = require('pg');
+const { verifyToken } = require('../middleware/auth');
 
 // Database configuration
 const pool = new Pool({
     user: 'postgres',
     host: 'localhost',
     database: 'Sandy',
-    password: 'process.env.DB_PASSWORD',
+    password: process.env.DB_PASSWORD,
     port: 5432,
 });
 
 // Get sitter profile with details
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user is requesting their own profile or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to view this profile' });
+        }
+
         const sitter = await pool.query(
             `SELECT 
         ps.*,
@@ -67,11 +74,17 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update sitter profile
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifyToken, async (req, res) => {
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
         const { id } = req.params;
+
+        // Check if user is updating their own profile or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to update this profile' });
+        }
+
+        await client.query('BEGIN');
         const { experience_years, personality_and_motivation, extended } = req.body;
 
         const updatedSitter = await client.query(
@@ -101,11 +114,17 @@ router.put('/:id', async (req, res) => {
 });
 
 // Update sitter availability
-router.put('/:id/availability', async (req, res) => {
+router.put('/:id/availability', verifyToken, async (req, res) => {
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
         const { id } = req.params;
+
+        // Check if user is updating their own availability or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to update this availability' });
+        }
+
+        await client.query('BEGIN');
         const { availability } = req.body;
 
         // Delete existing availability
@@ -132,9 +151,15 @@ router.put('/:id/availability', async (req, res) => {
 });
 
 // Add sitter photo
-router.post('/:id/photos', async (req, res) => {
+router.post('/:id/photos', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user is adding photos to their own profile or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to add photos to this profile' });
+        }
+
         const { url } = req.body;
 
         const newPhoto = await pool.query(
@@ -150,9 +175,15 @@ router.post('/:id/photos', async (req, res) => {
 });
 
 // Get sitter's bookings
-router.get('/:id/bookings', async (req, res) => {
+router.get('/:id/bookings', verifyToken, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Check if user is viewing their own bookings or is an employee
+        if (parseInt(id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to view these bookings' });
+        }
+
         const bookings = await pool.query(
             `SELECT b.*, 
               u.name as owner_name,
@@ -177,11 +208,16 @@ router.get('/:id/bookings', async (req, res) => {
     }
 });
 
-// Set sitter availability (duplicate, remove?)
-router.post('/availability', async (req, res) => {
+// Set sitter availability
+router.post('/availability', verifyToken, async (req, res) => {
     const client = await pool.connect();
     try {
         const { sitter_id, availability } = req.body;
+
+        // Check if user is setting their own availability or is an employee
+        if (parseInt(sitter_id) !== req.user.id && req.user.role !== 'employee') {
+            return res.status(403).json({ error: 'Not authorized to set this availability' });
+        }
 
         if (!sitter_id || !Array.isArray(availability)) {
             return res.status(400).json({ error: 'sitter_id and availability array are required.' });
