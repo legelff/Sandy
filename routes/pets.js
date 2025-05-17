@@ -1,16 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
 
 const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'Sandy',
-  password: 'process.env.DB_PASSWORD',
+  password: process.env.DB_PASSWORD,
   port: 5432,
 });
 
-// POST /pets - Add a new pet
+// Set storage destination and filename
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // make sure this folder exists
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + ext;
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+
+
+// Add a new pet
 router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -25,13 +43,14 @@ router.post('/', async (req, res) => {
       comfort_with_strangers,
       vaccinations,
       sterilized,
+      species_id
     } = req.body;
 
     const insertPet = await client.query(
       `INSERT INTO pets 
-        (owner_id, name, age, breed, personality, favorite_activities_and_needs, energy_level, comfort_with_strangers, vaccinations, sterilized)
+        (owner_id, name, age, breed, personality, favorite_activities_and_needs, energy_level, comfort_with_strangers, vaccinations, sterilized, species_id)
        VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         owner_id,
@@ -44,6 +63,7 @@ router.post('/', async (req, res) => {
         comfort_with_strangers,
         vaccinations,
         sterilized,
+        species_id
       ]
     );
 
@@ -59,7 +79,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-
+//DELETE a pet
 router.delete('/:id', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -89,6 +109,48 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Error deleting pet:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+
+// Add a photo for a specific pet
+router.post('/photos/:petId', upload.single('photo'), async (req, res) => {
+  const petId = parseInt(req.params.petId);
+  const photoPath = `/uploads/${req.file.filename}`; // Public URL path
+
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      `INSERT INTO pet_photos (url, pet_id) VALUES ($1, $2) RETURNING *`,
+      [photoPath, petId]
+    );
+
+    res.status(201).json({ message: 'Photo uploaded.', photo: result.rows[0] });
+  } catch (err) {
+    console.error('Error uploading photo:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// GET all pets for a specific owner
+router.get('/owner/:ownerId', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const ownerId = parseInt(req.params.ownerId);
+
+    const result = await client.query(
+      `SELECT * FROM pets WHERE owner_id = $1 ORDER BY id ASC`,
+      [ownerId]
+    );
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error('Error fetching pets:', err);
     res.status(500).json({ error: 'Server error', details: err.message });
   } finally {
     client.release();
