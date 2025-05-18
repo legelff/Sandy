@@ -7,13 +7,15 @@ const logger = require('morgan');
 const cors = require('cors');
 require('./config/db');
 
+
 const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
+const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
 const messagesRouter = require('./routes/messages');
 const reviewsRouter = require('./routes/reviews');
 
 const app = express();
+const PORT = process.env.PORT
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -25,11 +27,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use(express.urlencoded({ extended: true }));
 
 
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/auth', authRouter);
 app.use('/pets', petsRouter);
 app.use('/messages', messagesRouter);
 app.use('/reviews', reviewsRouter);
@@ -50,5 +52,18 @@ app.use(function (err, req, res, next) {
   res.render('error');
 });
 
+// Basic route for testing
+app.get('/', (req, res) => {
+  res.send('Pet Care API is running!');
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    status: 500,
+    message: 'Internal Server Error'
+  });
+});
 
 module.exports = app;
