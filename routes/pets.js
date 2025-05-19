@@ -6,11 +6,11 @@ const path = require('path');
 const { verifyToken } = require('../middleware/auth');
 
 const pool = new Pool({
-  user: 'postgres',
+  user: process.env.DB_USER ?? 'postgres',
   host: 'localhost',
-  database: 'Sandy',
+  database: process.env.DB_NAME ?? 'Sandy',
   password: process.env.DB_PASSWORD,
-  port: 5432,
+  port: process.env.DB_PORT ?? 5432,
 });
 
 // Set storage destination and filename

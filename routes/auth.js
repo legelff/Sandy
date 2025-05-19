@@ -9,11 +9,11 @@ const { Client } = require('@googlemaps/google-maps-services-js');
 
 // Database configuration for Sandy database
 const pool = new Pool({
-    user: 'postgres',
+    user: process.env.DB_USER ?? 'postgres',
     host: 'localhost',
-    database: 'Sandy',
+    database: process.env.DB_NAME ?? 'Sandy',
     password: process.env.DB_PASSWORD,
-    port: 5432,
+    port: process.env.DB_PORT ?? 5432,
 });
 
 const googleMapsClient = new Client({});
@@ -51,7 +51,6 @@ async function geocodeAddress(street, city, postcode) {
 }
 
 
-// Login endpoint
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -92,7 +91,7 @@ router.post('/login', async (req, res) => {
 
         // Generate JWT token using the imported JWT_SECRET
         const token = jwt.sign(
-            { userId: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role: user.role },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -148,7 +147,7 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Register owner endpoint
+
 router.post('/register/owner', async (req, res) => {
     try {
         const {
@@ -219,13 +218,23 @@ router.post('/register/owner', async (req, res) => {
             const userId = userResult.rows[0].id;
 
             // Insert pet owner
+            let validSubscriptionId = subscription_id || null;
+            if (subscription_id) {
+                const subCheck = await client.query(
+                    'SELECT id FROM z WHERE id = $1',
+                    [subscription_id]
+                );
+                if (subCheck.rows.length === 0) {
+                    validSubscriptionId = null;
+                }
+            }
             const insertOwnerQuery = `
         INSERT INTO pet_owners (user_id, subscription_id)
         VALUES ($1, $2)
         RETURNING id
       `;
 
-            const ownerValues = [userId, subscription_id || null];
+            const ownerValues = [userId, validSubscriptionId];
             const ownerResult = await client.query(insertOwnerQuery, ownerValues);
             const ownerId = ownerResult.rows[0].id;
 
@@ -248,6 +257,42 @@ router.post('/register/owner', async (req, res) => {
                         }
                     }
 
+                    // Map energy_level string to integer if needed
+                    let energyLevelValue = pet.energy_level;
+                    if (typeof energyLevelValue === 'string') {
+                        switch (energyLevelValue.toLowerCase()) {
+                            case 'low':
+                                energyLevelValue = 1;
+                                break;
+                            case 'medium':
+                                energyLevelValue = 2;
+                                break;
+                            case 'high':
+                                energyLevelValue = 3;
+                                break;
+                            default:
+                                energyLevelValue = null;
+                        }
+                    }
+
+                    // Map comfort_with_strangers string to integer if needed
+                    let comfortWithStrangersValue = pet.comfort_with_strangers;
+                    if (typeof comfortWithStrangersValue === 'string') {
+                        switch (comfortWithStrangersValue.toLowerCase()) {
+                            case 'poor':
+                                comfortWithStrangersValue = 1;
+                                break;
+                            case 'average':
+                                comfortWithStrangersValue = 2;
+                                break;
+                            case 'good':
+                                comfortWithStrangersValue = 3;
+                                break;
+                            default:
+                                comfortWithStrangersValue = null;
+                        }
+                    }
+
                     const insertPetQuery = `
             INSERT INTO pets (
               owner_id, name, age, breed, personality, 
@@ -265,8 +310,8 @@ router.post('/register/owner', async (req, res) => {
                         pet.breed || null,
                         pet.personality || null,
                         pet.favorite_activities_and_needs || null,
-                        pet.energy_level || null,
-                        pet.comfort_with_strangers || null,
+                        energyLevelValue,
+                        comfortWithStrangersValue,
                         pet.vaccinations || null,
                         pet.sterilized || false,
                         speciesId
@@ -349,7 +394,7 @@ router.post('/register/owner', async (req, res) => {
 });
 
 
-// Register sitter endpoint
+
 router.post('/register/sitter', async (req, res) => {
     try {
         const {
@@ -429,22 +474,33 @@ router.post('/register/sitter', async (req, res) => {
             const userResult = await client.query(insertUserQuery, userValues);
             const userId = userResult.rows[0].id;
 
-            // Insert pet sitter
+            // Validate sitter subscription_id
+            let validSitterSubscriptionId = subscription_id || null;
+            if (subscription_id) {
+                const subCheck = await client.query(
+                    'SELECT id FROM sitter_subscriptions WHERE id = $1',
+                    [subscription_id]
+                );
+                if (subCheck.rows.length === 0) {
+                    validSitterSubscriptionId = null;
+                }
+            }
+
             const insertSitterQuery = `
-        INSERT INTO pet_sitters (
-          user_id, 
-          subscription_id, 
-          experience_years, 
-          personality_and_motivation,
-          extended
-        )
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id
-      `;
+    INSERT INTO pet_sitters (
+      user_id, 
+      subscription_id, 
+      experience_years, 
+      personality_and_motivation,
+      extended
+    )
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING id
+`;
 
             const sitterValues = [
                 userId,
-                subscription_id || null,
+                validSitterSubscriptionId,
                 experience_years || 0,
                 personality_and_motivation || null,
                 false // default value for extended
@@ -573,10 +629,10 @@ router.post('/register/sitter', async (req, res) => {
     }
 });
 
-// Example of a protected route that uses the verifyToken middleware
+
 router.get('/user/profile', verifyToken, async (req, res) => {
     try {
-        const userId = req.user.userId; // Extracted from the JWT token
+        const userId = req.user.id; // Extracted from the JWT token
 
         // Get user data
         const userQuery = 'SELECT id, name, email, role, street, city, postcode FROM users WHERE id = $1';

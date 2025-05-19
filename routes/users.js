@@ -7,11 +7,11 @@ const { verifyToken, JWT_SECRET } = require('../middleware/auth');
 
 // Database configuration for Sandy database
 const pool = new Pool({
-  user: 'postgres',
+  user: process.env.DB_USER ?? 'postgres',
   host: 'localhost',
-  database: 'Sandy',
+  database: process.env.DB_NAME ?? 'Sandy',
   password: process.env.DB_PASSWORD,
-  port: 5432,
+  port: process.env.DB_PORT ?? 5432,
 });
 
 /* GET users listing. */

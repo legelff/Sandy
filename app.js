@@ -8,11 +8,14 @@ const cors = require('cors');
 require('./config/db');
 
 
+
+
 const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
 const messagesRouter = require('./routes/messages');
 const reviewsRouter = require('./routes/reviews');
+const bookingsRouter = require('./routes/bookings');
 
 const app = express();
 const PORT = process.env.PORT
@@ -35,6 +38,9 @@ app.use('/auth', authRouter);
 app.use('/pets', petsRouter);
 app.use('/messages', messagesRouter);
 app.use('/reviews', reviewsRouter);
+app.use('/bookings', bookingsRouter);
+
+
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -65,5 +71,6 @@ app.use((err, req, res, next) => {
     message: 'Internal Server Error'
   });
 });
+
 
 module.exports = app;
