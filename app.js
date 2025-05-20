@@ -2,23 +2,36 @@ require('dotenv').config();
 const createError = require('http-errors');
 const express = require('express');
 const path = require('path');
+const http = require('http');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
+const { Server } = require('socket.io');
 const cors = require('cors');
+
 require('./config/db');
 
 
 
+const app = express();
+const server = http.createServer(app);
+
+// crate socket.io server
+const io = new Server(server, {
+  cors: { origin: '*' },
+  path: '/socket.io/'
+});
 
 const indexRouter = require('./routes/index');
+const userRouter = require('./routes/users');
 const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
 const messagesRouter = require('./routes/messages');
 const reviewsRouter = require('./routes/reviews');
 const bookingsRouter = require('./routes/bookings');
 
-const app = express();
-const PORT = process.env.PORT
+// Export the router as a function to allow passing the Socket.IO instance (io)
+// so that we can initialize and use the socket server within this module
+const chatsRouter = require('./routes/chats')(io);
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -35,11 +48,12 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/', indexRouter);
 app.use('/auth', authRouter);
+app.use('/users', userRouter);
 app.use('/pets', petsRouter);
 app.use('/messages', messagesRouter);
 app.use('/reviews', reviewsRouter);
 app.use('/bookings', bookingsRouter);
-
+app.use('/chats', chatsRouter);
 
 
 // catch 404 and forward to error handler
@@ -73,4 +87,4 @@ app.use((err, req, res, next) => {
 });
 
 
-module.exports = app;
+module.exports = { server, app };

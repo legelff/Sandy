@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Sandy Chat Test App</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+    }
+
+    #messages {
+      border: 1px solid #ccc;
+      height: 200px;
+      overflow-y: scroll;
+      margin-bottom: 1em;
+      padding: 0.5em;
+    }
+
+    #chat {
+      display: flex;
+      gap: 0.5em;
+    }
+
+    #chat input {
+      flex: 1;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    label {
+      display: block;
+      margin-top: 1em;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Sandy Chat Test App</h2>
+
+  <div id="login-section">
+    <h3>Login</h3>
+    <label>Email: <input type="email" id="email" required></label>
+    <label>Password: <input type="password" id="password" required></label>
+    <button onclick="login()">Login</button>
+    <div id="login-status"></div>
+  </div>
+
+  <div id="chat-section" class="hidden">
+    <h3>Welcome, <span id="user-email"></span></h3>
+    <label>
+      Recipient User ID:
+      <input type="number" id="recipientId">
+      <button onclick="createConversation()">Create Conversation</button>
+    </label>
+    <label>
+      Or select a conversation:
+      <select id="conversationList" onchange="selectConversation()"></select>
+    </label>
+    <div id="messages"></div>
+    <form id="chat" onsubmit="sendMessage(event)">
+      <input id="message" autocomplete="off" placeholder="Type a message..." />
+      <button>Send</button>
+    </form>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    let token = null;
+    let user = null;
+    let socket = null;
+    let currentConversationId = null;
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      document.getElementById('login-status').textContent = 'Logging in...';
+      try {
+        const res = await fetch('http://localhost:3001/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.token) {
+          token = data.token;
+          user = data.user;
+          document.getElementById('login-section').classList.add('hidden');
+          document.getElementById('chat-section').classList.remove('hidden');
+          document.getElementById('user-email').textContent = user.email;
+          connectSocket();
+          loadConversations();
+        } else {
+          document.getElementById('login-status').textContent = data.message || 'Login failed';
+        }
+      } catch (err) {
+        document.getElementById('login-status').textContent = 'Login error';
+      }
+    }
+
+    function logout() {
+      token = null;
+      user = null;
+      if (socket) socket.disconnect();
+      document.getElementById('login-section').classList.remove('hidden');
+      document.getElementById('chat-section').classList.add('hidden');
+      document.getElementById('messages').innerHTML = '';
+      document.getElementById('conversationList').innerHTML = '';
+    }
+
+    function connectSocket() {
+      if (socket) socket.disconnect();
+      socket = io('http://localhost:3001', { auth: { token } });
+
+      socket.on('connect', () => {
+        logMessage('Socket connected');
+      });
+      socket.on('disconnect', () => {
+        logMessage('Socket disconnected');
+      });
+
+      socket.on('chat history', ({ conversationId, messages }) => {
+        document.getElementById('messages').innerHTML = '';
+        messages.forEach(msg => {
+          logMessage(`[${msg.timestamp}] <b>${msg.sender_name}:</b> ${msg.content}`);
+        });
+      });
+
+      socket.on('chat message', (msg) => {
+        logMessage(`[${msg.timestamp}] <b>${msg.sender_name}:</b> ${msg.content}`);
+      });
+
+      socket.on('connect_error', (err) => {
+        logMessage('Connection error: ' + err.message);
+      });
+    }
+
+    async function loadConversations() {
+      const res = await fetch('http://localhost:3001/chats', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      const conversations = await res.json();
+      const select = document.getElementById('conversationList');
+      select.innerHTML = '<option value="">-- Select --</option>';
+      conversations.forEach(conv => {
+        const otherUser = conv.user1_id === user.id ? conv.user2_id : conv.user1_id;
+        const option = document.createElement('option');
+        option.value = conv.id;
+        option.textContent = `Conversation with user ${otherUser}`;
+        select.appendChild(option);
+      });
+    }
+
+    async function createConversation() {
+      const recipientId = parseInt(document.getElementById('recipientId').value, 10);
+      if (!recipientId || recipientId === user.id) {
+        alert('Enter a valid recipient user ID');
+        return;
+      }
+      const res = await fetch('http://localhost:3001/chats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({ userId: recipientId })
+      });
+      const conversation = await res.json();
+      if (conversation.id || conversation.conversation) {
+        currentConversationId = conversation.id || conversation.conversation.id;
+        joinConversation(currentConversationId);
+        loadConversations();
+      } else {
+        alert('Could not create conversation');
+      }
+    }
+
+    function selectConversation() {
+      const select = document.getElementById('conversationList');
+      const convId = select.value;
+      if (convId) {
+        currentConversationId = convId;
+        joinConversation(convId);
+      }
+    }
+
+    function joinConversation(conversationId) {
+      if (!socket) return;
+      socket.emit('join conversation', { conversationId });
+      document.getElementById('messages').innerHTML = '';
+      logMessage('Joined conversation ' + conversationId);
+    }
+
+    function sendMessage(e) {
+      e.preventDefault();
+      if (!socket || !currentConversationId) return;
+      const content = document.getElementById('message').value;
+      if (!content) return;
+      socket.emit('chat message', {
+        conversationId: currentConversationId,
+        content
+      });
+      document.getElementById('message').value = '';
+    }
+
+    function logMessage(msg) {
+      const messagesDiv = document.getElementById('messages');
+      messagesDiv.innerHTML += msg + '<br>';
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+
+</html>
