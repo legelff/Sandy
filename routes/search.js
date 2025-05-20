@@ -1,0 +1,320 @@
+const express = require('express');
+const axios = require('axios');
+const router = express.Router();
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  user: 'postgres',
+  host: 'localhost',
+  database: 'Sandy',
+  password: process.env.DB_PASSWORD,
+  port: 5432,
+});
+
+// Geocode helper
+async function geocode(address) {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+  const res = await axios.get(url, {
+    headers: { 'User-Agent': 'SandyApp/1.0 (support@example.com)' }
+  });
+  if (!res.data[0]) throw new Error('Address not found');
+  return {
+    lat: parseFloat(res.data[0].lat),
+    lng: parseFloat(res.data[0].lon)
+  };
+}
+
+// Distance formula
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Get all days between two dates
+function getDaysBetween(start, end) {
+  const days = [];
+  const current = new Date(start);
+  while (current <= new Date(end)) {
+    days.push(current.toLocaleDateString('en-US', { weekday: 'long' }));
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
+
+router.get('/results', async (req, res) => {
+  const {
+    pets = [],
+    start_date,
+    end_date,
+    street_address,
+    city,
+    postcode,
+    service_tier
+  } = req.body;
+
+  if (!start_date || !end_date || !pets.length) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const speciesRequested = [...new Set(pets.map(p => p.species.toLowerCase()))];
+  const serviceTierRequired = service_tier === 'premium';
+
+  try {
+    const address = `${street_address}, ${city}, NY ${postcode}`;
+    const bookingCoords = await geocode(address);
+    const requiredDays = getDaysBetween(start_date, end_date);
+
+    const query = `
+      SELECT u.id AS user_id, u.name, u.latitude, u.longitude,
+             ps.id AS sitter_id, ps.extended, ps.experience_years, ps.personality_and_motivation,
+             ss.name AS subscription,
+             ARRAY(
+               SELECT url FROM sitter_photos sp WHERE sp.sitter_id = ps.id LIMIT 3
+             ) AS pictures,
+             (
+               SELECT ROUND(AVG(pr.rating)) FROM user_reviews pr WHERE pr.user_id = u.id
+             ) AS average_rating,
+             (
+               SELECT ARRAY_AGG(s.name)
+               FROM (
+                 SELECT DISTINCT s.name
+                 FROM species s
+                 JOIN employee_species es ON es.species_id = s.id
+                 JOIN employees e ON e.sitter_id = ps.id
+               ) s
+             ) AS supported_species,
+             ARRAY(
+               SELECT sa.day_of_week FROM sitter_availability sa WHERE sa.sitter_id = ps.id
+             ) AS available_days
+      FROM pet_sitters ps
+      JOIN users u ON u.id = ps.user_id
+      JOIN sitter_subscriptions ss ON ss.id = ps.subscription_id
+      WHERE ps.extended = $1
+    `;
+
+    const result = await pool.query(query, [serviceTierRequired]);
+
+    const matchingSitters = [];
+
+    for (const sitter of result.rows) {
+      const supported = sitter.supported_species || ['dog', 'cat'];
+      const supportsAllPets = speciesRequested.every(spec => supported.includes(spec));
+      const availableDays = sitter.available_days || [];
+      const isAvailable = requiredDays.every(day => availableDays.includes(day));
+
+      if (!supportsAllPets || !isAvailable) continue;
+
+      const distance = getDistanceKm(
+        bookingCoords.lat,
+        bookingCoords.lng,
+        sitter.latitude,
+        sitter.longitude
+      );
+
+      matchingSitters.push({
+        sitter_id: sitter.sitter_id,
+        name: sitter.name,
+        distance: parseFloat(distance.toFixed(2)),
+        pictures: sitter.pictures,
+        average_rating: sitter.average_rating || 0,
+        supported_pets: supported,
+        personality: sitter.personality_and_motivation
+      });
+    }
+
+    // Sort by distance ascending
+    matchingSitters.sort((a, b) => a.distance - b.distance);
+
+    res.status(200).json({ matching_sitters: matchingSitters });
+  } catch (err) {
+    console.error('Error in /search/results:', err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+router.get('/sitter', async (req, res) => {
+  const sitterUserId = req.query.user_id;
+  if (!sitterUserId) return res.status(400).json({ error: 'user_id is required' });
+
+  try {
+    const sitterUserRes = await pool.query(
+      'SELECT latitude, longitude FROM users WHERE id = $1',
+      [sitterUserId]
+    );
+    const sitterUser = sitterUserRes.rows[0];
+
+    const sitterIdRes = await pool.query(
+      'SELECT id FROM pet_sitters WHERE user_id = $1',
+      [sitterUserId]
+    );
+    const sitterId = sitterIdRes.rows[0].id;
+
+    const bookingQuery = `
+      SELECT b.id AS request_id, b.street, b.city, b.postcode, b.owner_id, u.name AS owner_name
+      FROM bookings b
+      JOIN users u ON u.id = b.owner_id
+      WHERE b.sitter_id = $1 AND b.status = 'requested'
+    `;
+    const bookings = await pool.query(bookingQuery, [sitterId]);
+
+    const results = [];
+
+    for (const booking of bookings.rows) {
+      const bookingAddress = `${booking.street}, ${booking.city}, NY ${booking.postcode}`;
+      const bookingCoords = await geocode(bookingAddress);
+      const distance = getDistanceKm(
+        sitterUser.latitude, sitterUser.longitude,
+        bookingCoords.lat, bookingCoords.lng
+      );
+
+      const petsQuery = `
+        SELECT p.id AS pet_id, s.name AS pet_species, p.personality
+        FROM booking_pets bp
+        JOIN pets p ON bp.pet_id = p.id
+        JOIN species s ON p.species_id = s.id
+        WHERE bp.booking_id = $1
+      `;
+      const pets = await pool.query(petsQuery, [booking.request_id]);
+
+      results.push({
+        request_id: booking.request_id,
+        owner_name: booking.owner_name,
+        distance: parseFloat(distance.toFixed(2)),
+        pets: pets.rows.map(p => ({
+          pet_id: p.pet_id,
+          pet_species: p.pet_species
+        })),
+        personality: pets.rows.map(p => p.personality).join(', ')
+      });
+    }
+
+    res.status(200).json({ requests: results });
+  } catch (err) {
+    console.error('Error in /search/sitter:', err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+
+
+// POST /search/save
+router.post('/save', async (req, res) => {
+  const {
+    user_id,             // owner
+    sitter_user_id,      // user.id of the sitter
+    start_date,
+    end_date,
+    selected_pets,
+    street,
+    city,
+    postcode
+  } = req.body;
+
+  if (!user_id || !sitter_user_id || !start_date || !end_date || !selected_pets?.length || !street || !city || !postcode) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  try {
+    // 1. Get sitter_id from pet_sitters
+    const sitterRes = await pool.query(
+      `SELECT id FROM pet_sitters WHERE user_id = $1`,
+      [sitter_user_id]
+    );
+    if (sitterRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Sitter not found' });
+    }
+    const sitter_id = sitterRes.rows[0].id;
+
+    // 2. Get sitter address from users table
+    const sitterAddressRes = await pool.query(
+      `SELECT street, city, postcode FROM users WHERE id = $1`,
+      [sitter_user_id]
+    );
+    if (sitterAddressRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Sitter user not found' });
+    }
+
+    const sitterAddr = sitterAddressRes.rows[0];
+    const sitterFullAddr = `${sitterAddr.street}, ${sitterAddr.city}, ${sitterAddr.postcode}`;
+    const bookingFullAddr = `${street}, ${city}, ${postcode}`;
+
+    // 3. Geocode both
+    const sitterCoords = await geocode(sitterFullAddr);
+    const bookingCoords = await geocode(bookingFullAddr);
+
+    console.log('Sitter full address:', sitterFullAddr);
+    console.log('Booking full address:', bookingFullAddr);
+    console.log('Sitter coordinates:', sitterCoords);
+    console.log('Booking coordinates:', bookingCoords);
+
+
+    // 4. Calculate distance
+    const distance = getDistanceKm(
+      sitterCoords.lat,
+      sitterCoords.lng,
+      bookingCoords.lat,
+      bookingCoords.lng
+    );
+
+    // 5. Insert booking with status "saved"
+    const bookingRes = await pool.query(`
+      INSERT INTO bookings (
+        owner_id, sitter_id, start_datetime, end_datetime,
+        total_price, status, city, street, postcode
+      ) VALUES ($1, $2, $3, $4, NULL, 'saved', $5, $6, $7)
+      RETURNING id
+    `, [user_id, sitter_id, start_date, end_date, city, street, postcode]);
+
+    const bookingId = bookingRes.rows[0].id;
+
+    // 6. Insert pets
+    const petInserts = selected_pets.map(pet_id =>
+      pool.query(`INSERT INTO booking_pets (booking_id, pet_id) VALUES ($1, $2)`, [bookingId, pet_id])
+    );
+    await Promise.all(petInserts);
+
+    res.status(200).json({
+      message: 'Booking saved successfully',
+      booking_id: bookingId,
+      distance_km: parseFloat(distance.toFixed(2))
+    });
+
+  } catch (err) {
+    console.error('Error in /search/save:', err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+
+router.get('/owner', async (req, res) => {
+  const userId = Number(req.query.user_id);
+
+  if (!userId) {
+    return res.status(400).json({ error: 'user_id is required' });
+  }
+
+  try {
+    const query = `
+      SELECT p.name, s.name AS species
+      FROM pets p
+      LEFT JOIN species s ON p.species_id = s.id
+      WHERE p.owner_id = $1
+    `;
+
+    const { rows } = await pool.query(query, [userId]);
+
+    res.status(200).json({ pets: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+module.exports = router;

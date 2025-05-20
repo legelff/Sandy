@@ -9,8 +9,11 @@ require('./config/db');
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const petsRouter = require('./routes/pets');
-const messagesRouter = require('./routes/messages');
 const reviewsRouter = require('./routes/reviews');
+const searchRouter = require('./routes/search');
+const homeRouter = require('./routes/home');
+const sitterRouter = require('./routes/sitter');
+const optionsRouter = require('./routes/options');
 
 const app = express();
 
@@ -29,8 +32,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/pets', petsRouter);
-app.use('/messages', messagesRouter);
 app.use('/reviews', reviewsRouter);
+app.use('/search', searchRouter);
+app.use('/home', homeRouter);
+app.use('/sitter', sitterRouter);
+app.use('/options', optionsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
