@@ -25,13 +25,20 @@ const indexRouter = require('./routes/index');
 const userRouter = require('./routes/users');
 const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
-const messagesRouter = require('./routes/messages');
 const reviewsRouter = require('./routes/reviews');
+
+const searchRouter = require('./routes/search');
+const homeRouter = require('./routes/home');
+const sitterRouter = require('./routes/sitter');
+const optionsRouter = require('./routes/options');
 const bookingsRouter = require('./routes/bookings');
 
 // Export the router as a function to allow passing the Socket.IO instance (io)
 // so that we can initialize and use the socket server within this module
 const chatsRouter = require('./routes/chats')(io);
+
+
+const PORT = process.env.PORT
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -50,8 +57,11 @@ app.use('/', indexRouter);
 app.use('/auth', authRouter);
 app.use('/users', userRouter);
 app.use('/pets', petsRouter);
-app.use('/messages', messagesRouter);
 app.use('/reviews', reviewsRouter);
+app.use('/search', searchRouter);
+app.use('/home', homeRouter);
+app.use('/sitter', sitterRouter);
+app.use('/options', optionsRouter);
 app.use('/bookings', bookingsRouter);
 app.use('/chats', chatsRouter);
 
