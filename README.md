@@ -1,20 +1,19 @@
 # Sandy
-Sandy: Tinder for pets
+Sandy: A platform for your pets and certified caretakers.
 
-## App
-### Tech Stack
-#### System Design & Whiteboarding
+## Tech Stack
+### System Design & Whiteboarding
 - Excalidraw
 
-#### Frontend
+### Frontend
 - React Native
 - Expo Go
 
-#### Backend
+### Backend
 - NodeJS (ExpressJS)
 - Prisma ORM
 - Socket.io
 - ...
 
-#### Database
+### Database
 - PostgreSQL
