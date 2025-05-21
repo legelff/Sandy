@@ -299,14 +299,12 @@ follow these guidelines when creating and/or editing the app:
                 - Navigation bar (
                     - Home (Home icon)
                     - Search (Search icon)
-                    - Options (Options icon)
                     - Messages (Messages icon)
                     - Profile (Profile icon)
                 )
         - SearchOwner.tsx: step 1 (search page - select pets and filters)
             - Structure:
                 - Header (Select pets and filter results)
-                - Search bar (search by name, location, or availability)
                 - Pets list inactive (
                     - Pets list item (
                         - Pet (name, species)
@@ -344,7 +342,7 @@ follow these guidelines when creating and/or editing the app:
                         - right column (pet sitter image)
                     )
                 )
-                - top layer (bottom, covers 1/5th of screen on bottom above nav) (
+                - top layer (bottom, covers 1/5th of screen on bottom above nav in an upward black to transparent gradient for text readability) (
                     - Main info row (
                         - Sitter Name
                         - Sitter Distance
@@ -365,7 +363,310 @@ follow these guidelines when creating and/or editing the app:
                     - Profile (Profile icon)
                 )
         - SearchSitter.tsx (search page - requests from pet owners)
-                
+             - Structure:
+                - Swipe left to reject, right to accept
+                - Bottom layer (background, full page pet images in a 2 column grid) (
+                    - top column (pet main image)
+                    - bottom 2 row grid (
+                        - left column (pet image)
+                        - right column (pet image)
+                    )
+                )
+                - top layer (bottom, covers 1/5th of screen on bottom above nav in an upward black to transparent gradient for text readability) (
+                    - Main info row (
+                        - Owner Name
+                        - Owner Distance
+                        - Rating (avg rating by sitters: number + star icon)
+                    )
+                    - Interactive Pet Badges (shows list of pets needing care in a row)
+                    - (behavior of pet badges) Clicking a pet badge:
+                        - Highlights the selected pet
+                        - Updates display to show:
+                            - Pet's rating
+                            - Pet's personality
+                            - Pet's images in background (on bottom layer)
+                        - First pet is selected by default
+                )
+                - Navigation bar (
+                    - Home (Home icon)
+                    - Search (Search icon)
+                    - Messages (Messages icon)
+                    - Profile (Profile icon)
+                )
+        - Options.tsx - step 1 (manage pet sitter matches)
+            - Structure:
+            - Header (Options)
+            - Match list (
+                - Match item (
+                    - Avatar (Pet sitter profile picture)
+                    - Info group (
+                        - Name row (
+                            - Pet sitter name
+                            - Distance (x.x KM)
+                            - Rating (pet sitter rating + star icon)
+                        )
+                        - Names row (
+                            - Badges (selected pets as badges)
+                        )
+                        - Start and end time row (
+                            - Start time (DD/MM/YYYY, HH:MM)
+                            - Separator (-)
+                            - End time (DD/MM/YYYY, HH:MM)
+                        )
+                        - Score row (
+                            - Label (Relevancy Score:)
+                            - Value (x.x)
+                        )
+                        - Button (DELETE)
+                    )
+                )
+            )
+            - Navigation bar (
+                - Home (Home icon)
+                - Search (Search icon)
+                - Options (Options icon)
+                - Messages (Messages icon)
+                - Profile (Profile icon)
+            )
+
+        - OptionDetails.tsx (check/edit/send request to pet sitter)
+            - Structure:
+                - Avatar (Pet sitter profile picture)
+                - Name row (
+                    - Pet sitter name (clickable to open pet sitter profile)
+                    - Distance (x.x KM)
+                    - Rating (pet sitter rating + star icon)
+                )
+                - Pets list (highlight currently selected pets) (
+                    - Pets list item (
+                        - Pet (name, species)
+                        - Plus Icon (add pet to selection)
+                    )
+                )
+                - Dates (
+                    - Date (start date)
+                    - Date (end date)
+                )
+                - Location (
+                    - Button (Home)
+                    - Button (Current)
+                    - Input (location)
+                )
+                - Service type (only for premium users - select only 1) (
+                    - Option (Basic)
+                    - Option (Extended)
+                )
+                - Price (
+                    Base: $x.xx
+                    Tax: $x.xx
+                    Total: $x.xx
+                )
+                - Button (Send request)
+        - PetSitter.tsx (pet sitter profile)
+            - Structure:
+                - Header (Pet sitter name - distance - close button on right)
+                - Badges (profile type, verified, years of experience, certifications)
+                - Image grid (2 equal columns) (
+                    - Image container left (
+                        - Image (pet image)
+                    )
+                    - Image grid right (2 equal rows) (
+                        - Image container top (
+                            - Image (pet image)
+                        )
+                        - Image container bottom (
+                            - Image (pet image)
+                        )
+                    )
+                )
+                - Personality and motivation
+                - Reviews (
+                    - Review item (
+                        - Avatar (pet owner profile picture)
+                        - Name row (
+                            - Pet owner name
+                            - Rating (pet owner rating + star icon)
+                        )
+                        - Review text
+                        - Date
+                    )
+                )
+        - PetInfo.tsx (pet profile)
+            - Structure:
+                - Header (Pet name - distance - close button on right)
+                - Badges (pet species, pet breed, age, energy level, comfort level)
+                - Image grid (2 equal columns) (
+                    - Image container left (
+                        - Image (pet image)
+                    )
+                    - Image grid right (2 equal rows) (
+                        - Image container top (
+                            - Image (pet image)
+                        )
+                        - Image container bottom (
+                            - Image (pet image)
+                        )
+                    )
+                )
+                - pet Personality
+                - pet needs and activities
+                - Reviews (
+                    - Review item (
+                        - Avatar (pet sitter profile picture)
+                        - Name row (
+                            - Pet sitter name
+                            - Rating (pet sitter rating + star icon)
+                        )
+                        - Review text
+                        - Date
+                    )
+                )
+        - MessageList.tsx (messages)
+            - Structure:
+                - Header (Messages)
+                - Chats columns (
+                    - Chat option row (highlight with blue border if unread message for that chat) (
+                        - Avatar (pet sitter profile picture)
+                        - Name row (recipient can be owner/sitter) (
+                            - recipient name
+                        )
+                        - 1 badge: Pets selected (pet name) -> if multiple, write "Multiple"
+                    )
+                )
+                - Navigation bar (
+                    - Home (Home icon)
+                    - Search (Search icon)
+                    - Options (Options icon) -> only for owner
+                    - Messages (Messages icon)
+                    - Profile (Profile icon)
+                )
+        - Chat.tsx (chat)
+            - Structure:
+                - Header (
+                    - Back button
+                    - Pet sitter/owner name
+                    - Pet name badge (if multiple pets selected, write "Multiple")
+                    - Close button (X)
+                )
+                - Messages (
+                    - Message item (
+                        - Avatar (pet sitter/owner profile picture)
+                        - Name row (owner/sitter) (
+                            - owner/sitter name
+                        )
+                        - Message text
+                        - Date
+                    )
+                )
+                - Input (
+                    - Book icon (check/edit/confirm booking)
+                    - Attachment icon (open dropdown: attach image, take picture)
+                    - Input (message)
+                    - Button (Send)
+                )
+                - Navigation bar (
+                    - Home (Home icon)
+                    - Search (Search icon)
+                    - Options (Options icon) -> only for owner
+                    - Messages (Messages icon)
+                    - Profile (Profile icon)
+                )
+        - Booking.tsx (booking - open from chat)
+            - Structure:
+               - Header (
+                    - Back button
+                    - Pet sitter/owner name
+                    - Pet name badge (if multiple pets selected, write "Multiple")
+                    - Close button (X)
+                )
+                - Booking details (
+                    - Pets list (highlight currently selected pets) (
+                        - Pets list item (
+                            - Pet (name, species)
+                            - Plus Icon (add pet to selection)
+                        )
+                    )
+                    - Dates (
+                        - Date (start date)
+                        - Date (end date)
+                    )
+                    - Location (
+                        - Button (Home)
+                        - Button (Current)
+                        - Input (location)
+                    )
+                    - Service type (only for premium owners - select only 1) (
+                        - Option (Basic)
+                        - Option (Extended)
+                    )
+                    - Price (
+                        Base: $x.xx
+                        Tax: $x.xx
+                        Total: $x.xx
+                    )
+                    - Button (Send confirmation)
+                )
+                - Navigation bar (
+                    - Home (Home icon)
+                    - Search (Search icon)
+                    - Options (Options icon) -> only for owner
+                    - Messages (Messages icon)
+                    - Profile (Profile icon)
+                )
+        - BookingConfirmationComponent.tsx (in chat as message after "Send confirmation")
+            - Structure:
+                - Header (Booking confirmation - total price)
+                - Booking details (
+                    - pets badges (selected pets as badges)
+                    - Names row (
+                        - Badges (selected pets as badges)
+                    )
+                    - Start and end time row (
+                        - Start time (DD/MM/YYYY, HH:MM)
+                        - Separator (-)
+                        - End time (DD/MM/YYYY, HH:MM)
+                    )
+                    - Button left (Decline)
+                    - button right (Accept)
+                )
+        - ProfileOwner.tsx (owner profile)
+            - Structure:
+                - Header (Name - subscription plan)
+                - pet owner name
+                - pet owner email
+                - pet owner street address
+                - pet owner city
+                - pet owner postcode
+                - Pets list (
+                    - Pets list item (click to edit) (
+                        - Pet (name, species)
+                        - Button (Remove pet)
+                    )
+                )
+                - Button (Add pet)
+
+                - Navigation bar (
+                    - Home (Home icon)
+                    - Search (Search icon)
+                    - Options (Options icon) -> only for owner
+                    - Messages (Messages icon)
+                    - Profile (Profile icon)
+                )
+        - ProfileSitter.tsx (sitter profile)
+            - Structure:
+                - Header (Name - subscription plan)
+                - pet sitter name
+                - pet sitter email
+                - pet sitter street address
+                - pet sitter city
+                - pet sitter postcode
+
+                - Navigation bar (
+                    - Home (Home icon)
+                    - Search (Search icon)
+                    - Messages (Messages icon)
+                    - Profile (Profile icon)
+                )
 
 2. Component Organization:
     - /components
