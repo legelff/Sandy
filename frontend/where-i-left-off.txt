@@ -1,0 +1,4 @@
+- i left off at trying to fix register, create profile flow and other screen not showing,
+instead its showing "coming soon" screen
+
+- need to create home screens next after auth is fine
