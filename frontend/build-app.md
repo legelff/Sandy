@@ -4,7 +4,7 @@
 
 ## 1. Core Setup & Configuration Details
 
-### 1.1. Dependencies Installation
+### 1.1. Dependencies Installation (NOT NEEDED, ALREADY DONE)
 Execute the following command to install necessary packages:
 ```bash
 npx expo install @react-navigation/native @react-navigation/native-stack lucide-react-native react-native-screens react-native-safe-area-context
