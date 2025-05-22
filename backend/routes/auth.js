@@ -4,8 +4,6 @@ const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const { verifyToken, JWT_SECRET } = require('../middleware/auth');
-const { Client } = require('@googlemaps/google-maps-services-js');
-
 
 // Database configuration for Sandy database
 const pool = new Pool({
@@ -15,40 +13,6 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT ?? 5432,
 });
-
-const googleMapsClient = new Client({});
-
-//function to handle geocoding
-async function geocodeAddress(street, city, postcode) {
-    try {
-        const address = `${street}, ${city}, ${postcode}`;
-        const response = await googleMapsClient.geocode({
-            params: {
-                address,
-                key: process.env.GOOGLE_MAPS_API_KEY
-            },
-            timeout: 5000
-        });
-
-        console.log("Geocode response:", response.data);
-
-        if (response.data.status === 'OK' && response.data.results.length > 0) {
-            const loc = response.data.results[0].geometry.location;
-            return {
-                latitude: loc.lat,
-                longitude: loc.lng,
-                formatted_address: response.data.results[0].formatted_address
-            };
-        } else {
-            console.warn("Geocode status:", response.data.status);
-            return { latitude: null, longitude: null, formatted_address: null };
-        }
-
-    } catch (err) {
-        console.error("Geocoding error:", err.response?.data || err.message || err);
-        return { latitude: null, longitude: null, formatted_address: null };
-    }
-}
 
 
 router.post('/login', async (req, res) => {
@@ -180,12 +144,9 @@ router.post('/register/owner', async (req, res) => {
                 message: 'Email already exists',
                 errType: 'Email'
             });
-        }
-
-        // Get geocoding for latitude and longitude
-        const geocodeResult = await geocodeAddress(street, city, postcode);
-        const latitude = geocodeResult.latitude;
-        const longitude = geocodeResult.longitude;
+        }        // Set latitude and longitude to null
+        const latitude = null;
+        const longitude = null;
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -430,19 +391,9 @@ router.post('/register/sitter', async (req, res) => {
                 message: 'Email already exists',
                 errType: 'Email'
             });
-        }
-
-        // Get geocoding for latitude and longitude
-        const geocodeResult = await geocodeAddress(street, city, postcode);
-        const latitude = geocodeResult.latitude;
-        const longitude = geocodeResult.longitude;
-
-        // Log geocoding results for debugging (remove in production)
-        console.log(`Geocoded ${street}, ${city}, ${postcode} to:`, {
-            latitude,
-            longitude,
-            formatted_address: geocodeResult.formatted_address
-        });
+        }        // Set latitude and longitude to null
+        const latitude = null;
+        const longitude = null;
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -578,11 +529,6 @@ router.post('/register/sitter', async (req, res) => {
             const photosQuery = 'SELECT id, url FROM sitter_photos WHERE sitter_id = $1';
             const photosResult = await pool.query(photosQuery, [sitterId]);
             userDetails.photos = photosResult.rows;
-
-            // Add geocoding info to the response (optional)
-            if (geocodeResult.formatted_address) {
-                userDetails.formatted_address = geocodeResult.formatted_address;
-            }
 
             // Return success response
             return res.status(200).json({
