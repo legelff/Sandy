@@ -14,15 +14,22 @@ const pool = new Pool({
 // Geocode helper
 async function geocode(address) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-  const res = await axios.get(url, {
-    headers: { 'User-Agent': 'SandyApp/1.0 (support@example.com)' }
-  });
-  if (!res.data[0]) throw new Error('Address not found');
-  return {
-    lat: parseFloat(res.data[0].lat),
-    lng: parseFloat(res.data[0].lon)
-  };
+  console.log('➡️ Requesting geocode for:', address);
+  try {
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'SandyApp/1.0 (support@example.com)' }
+    });
+    if (!res.data[0]) throw new Error('Address not found');
+    return {
+      lat: parseFloat(res.data[0].lat),
+      lng: parseFloat(res.data[0].lon)
+    };
+  } catch (err) {
+    console.error('🌐 Geocoding error:', err.response?.data || err.message);
+    throw err;
+  }
 }
+
 
 // Distance formula
 function getDistanceKm(lat1, lon1, lat2, lon2) {
@@ -67,7 +74,7 @@ router.get('/results', async (req, res) => {
   const serviceTierRequired = service_tier === 'premium';
 
   try {
-    const address = `${street_address}, ${city}, NY ${postcode}`;
+    const address = `${street_address}, ${city}, ${postcode}`;
     const bookingCoords = await geocode(address);
     const requiredDays = getDaysBetween(start_date, end_date);
 
@@ -145,7 +152,7 @@ router.get('/sitter', async (req, res) => {
 
   try {
     const sitterUserRes = await pool.query(
-      'SELECT latitude, longitude FROM users WHERE id = $1',
+      'SELECT street, city, postcode FROM users WHERE id = $1',
       [sitterUserId]
     );
     const sitterUser = sitterUserRes.rows[0];
@@ -156,6 +163,9 @@ router.get('/sitter', async (req, res) => {
     );
     const sitterId = sitterIdRes.rows[0].id;
 
+    const sitterAddress = `${sitterUser.street}, ${sitterUser.city}, ${sitterUser.postcode}`;
+    const sitterCoords = await geocode(sitterAddress);
+
     const bookingQuery = `
       SELECT b.id AS request_id, b.street, b.city, b.postcode, b.owner_id, u.name AS owner_name
       FROM bookings b
@@ -165,14 +175,19 @@ router.get('/sitter', async (req, res) => {
     const bookings = await pool.query(bookingQuery, [sitterId]);
 
     const results = [];
+    console.log('🔎 Raw sitterUser result:', sitterUserRes.rows);
+    console.log('🧑 Final sitterUser:', sitterUser);
+    console.log('📍 Final address used for geocoding:', sitterAddress);
+
 
     for (const booking of bookings.rows) {
-      const bookingAddress = `${booking.street}, ${booking.city}, NY ${booking.postcode}`;
+      const bookingAddress = `${booking.street}, ${booking.city}, ${booking.postcode}`;
       const bookingCoords = await geocode(bookingAddress);
       const distance = getDistanceKm(
-        sitterUser.latitude, sitterUser.longitude,
+        sitterCoords.lat, sitterCoords.lng,
         bookingCoords.lat, bookingCoords.lng
       );
+
 
       const petsQuery = `
         SELECT p.id AS pet_id, s.name AS pet_species, p.personality

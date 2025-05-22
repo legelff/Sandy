@@ -39,11 +39,7 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
 
 router.get('/', async (req, res) => {
   const sitterId = req.query.sitter_id;
-  const { street_address, city, postcode } = req.query;
 
-  if (!sitterId || !street_address || !city || !postcode) {
-    return res.status(400).json({ error: 'sitter_id and full address (street_address, city, postcode) are required' });
-  }
 
   try {
     const sitterQuery = `
