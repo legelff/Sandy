@@ -221,7 +221,7 @@ router.post('/register/owner', async (req, res) => {
             let validSubscriptionId = subscription_id || null;
             if (subscription_id) {
                 const subCheck = await client.query(
-                    'SELECT id FROM z WHERE id = $1',
+                    'SELECT id FROM owner_subscriptions WHERE id = $1',
                     [subscription_id]
                 );
                 if (subCheck.rows.length === 0) {
@@ -565,7 +565,7 @@ router.post('/register/sitter', async (req, res) => {
             const userDetails = userDetailsResult.rows[0];
             delete userDetails.password; // Remove password from response
 
-            // Get availability
+            // Get availability 
             const availabilityQuery = `
         SELECT * FROM sitter_availability 
         WHERE sitter_id = $1
