@@ -11,7 +11,6 @@ Sandy: A platform for your pets and certified caretakers.
 
 ### Backend
 - NodeJS (ExpressJS)
-- Prisma ORM
 - Socket.io
 - ...
 
