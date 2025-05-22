@@ -10,7 +10,6 @@ require('./config/db');
 
 
 
-const indexRouter = require('./routes/index');
 const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
 const reviewsRouter = require('./routes/reviews');
@@ -38,7 +37,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.urlencoded({ extended: true }));
 
 
-app.use('/', indexRouter);
+
 app.use('/auth', authRouter);
 app.use('/pets', petsRouter);
 app.use('/reviews', reviewsRouter);

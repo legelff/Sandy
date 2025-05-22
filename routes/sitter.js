@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const axios = require('axios');
 
 const pool = new Pool({
   user: 'postgres',
@@ -36,7 +37,7 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-router.get('/sitter', async (req, res) => {
+router.get('/', async (req, res) => {
   const sitterId = req.query.sitter_id;
   const { street_address, city, postcode } = req.query;
 
@@ -58,11 +59,6 @@ router.get('/sitter', async (req, res) => {
     if (sitterResult.rows.length === 0) return res.status(404).json({ error: 'Sitter not found' });
     const sitter = sitterResult.rows[0];
 
-    // Distance calculation
-    const sitterCoords = { lat: sitter.latitude, lng: sitter.longitude };
-    const ownerCoords = await geocode(`${street_address}, ${city}, ${postcode}`);
-    const distance = getDistanceKm(ownerCoords.lat, ownerCoords.lng, sitterCoords.lat, sitterCoords.lng);
-
     const imagesRes = await pool.query(`SELECT url FROM sitter_photos WHERE sitter_id = $1 LIMIT 3`, [sitterId]);
     const sitterImages = imagesRes.rows.map(img => img.url);
     const mainImg = sitterImages[0] || null;
@@ -72,18 +68,6 @@ router.get('/sitter', async (req, res) => {
         SELECT user_id FROM pet_sitters WHERE id = $1
       )`, [sitterId]);
     const averageRating = ratingRes.rows[0]?.avg_rating || 0;
-
-    const bookingRes = await pool.query(`
-      SELECT b.start_datetime, b.end_datetime, p.name AS pet_name
-      FROM bookings b
-      JOIN booking_pets bp ON b.id = bp.booking_id
-      JOIN pets p ON p.id = bp.pet_id
-      WHERE b.sitter_id = $1
-      ORDER BY b.start_datetime DESC LIMIT 5
-    `, [sitterId]);
-    const selectedPets = bookingRes.rows.map(b => b.pet_name);
-    const startDate = bookingRes.rows[0]?.start_datetime || null;
-    const endDate = bookingRes.rows[0]?.end_datetime || null;
 
     let supportedPets = ['dog', 'cat'];
     let certifications = [];
@@ -114,20 +98,14 @@ router.get('/sitter', async (req, res) => {
       sitter_name: sitter.sitter_name,
       main_img: mainImg,
       average_rating: averageRating,
-      start_date: startDate,
-      end_date: endDate,
-      selected_pets: selectedPets,
-      distance: parseFloat(distance.toFixed(2)),
       service_tier: sitter.is_employee ? 'Premium' : 'Basic',
-      relevancy_score: parseFloat((Math.random() * 2 + 8).toFixed(1)),
       sitter_subscription: sitter.is_employee ? 'Employee' : sitter.sitter_subscription,
       sitter_experience: sitter.experience_years,
       sitter_images: sitterImages,
       sitter_personality: sitter.personality_and_motivation,
       sitter_certifications: certifications,
       sitter_reviews: sitterReviews,
-      supported_pets: supportedPets,
-      rate_negotiable: false
+      supported_pets: supportedPets
     });
 
   } catch (err) {
@@ -135,6 +113,7 @@ router.get('/sitter', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 
 // Set sitter availability
