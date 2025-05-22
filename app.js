@@ -19,7 +19,7 @@ const searchRouter = require('./routes/search');
 const homeRouter = require('./routes/home');
 const sitterRouter = require('./routes/sitter');
 const optionsRouter = require('./routes/options');
-const bookingsRouter = require('./routes/bookings');
+const bookingsRouter = require('./routes/booking');
 
 
 const app = express();
@@ -46,7 +46,7 @@ app.use('/search', searchRouter);
 app.use('/home', homeRouter);
 app.use('/sitter', sitterRouter);
 app.use('/options', optionsRouter);
-app.use('/bookings', bookingsRouter);
+app.use('/booking', bookingsRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

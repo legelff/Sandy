@@ -49,7 +49,7 @@ router.post('/', verifyToken, async (req, res) => {
 
         const bookingPetsQuery = `
             INSERT INTO booking_pets (booking_id, pet_id)
-            VALUES ${pet_ids.map((_, i) => ($1, $${ i + 2})).join(',')}
+            VALUES ${pet_ids.map((_, i) => `($1, $${i + 2})`).join(',')}
         `;
         await pool.query(bookingPetsQuery, [booking.id, ...pet_ids]);
 
@@ -153,7 +153,7 @@ router.put('/:id', verifyToken, async (req, res) => {
         if (Array.isArray(pet_ids) && pet_ids.length > 0) {
             const insertQuery = `
                 INSERT INTO booking_pets (booking_id, pet_id)
-                VALUES ${pet_ids.map((_, i) => ($1, $${ i + 2})).join(',')}
+                VALUES ${pet_ids.map((_, i) => `($1, $${i + 2})`).join(',')}
             `;
             await pool.query(insertQuery, [id, ...pet_ids]);
         }
