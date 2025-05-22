@@ -1,5 +1,5 @@
 ---
-applyTo: '**'
+applyTo: './frontend/**/*'
 ---
 
 # GitHub Copilot: React Native (Expo) TypeScript App Development Guide
