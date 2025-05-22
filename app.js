@@ -2,27 +2,14 @@ require('dotenv').config();
 const createError = require('http-errors');
 const express = require('express');
 const path = require('path');
-const http = require('http');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
-const { Server } = require('socket.io');
 const cors = require('cors');
-
 require('./config/db');
 
 
 
-const app = express();
-const server = http.createServer(app);
 
-// crate socket.io server
-const io = new Server(server, {
-  cors: { origin: '*' },
-  path: '/socket.io/'
-});
-
-const indexRouter = require('./routes/index');
-const userRouter = require('./routes/users');
 const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
 const reviewsRouter = require('./routes/reviews');
@@ -31,13 +18,10 @@ const searchRouter = require('./routes/search');
 const homeRouter = require('./routes/home');
 const sitterRouter = require('./routes/sitter');
 const optionsRouter = require('./routes/options');
-const bookingsRouter = require('./routes/bookings');
-
-// Export the router as a function to allow passing the Socket.IO instance (io)
-// so that we can initialize and use the socket server within this module
-const chatsRouter = require('./routes/chats')(io);
+const bookingsRouter = require('./routes/booking');
 
 
+const app = express();
 const PORT = process.env.PORT
 
 // view engine setup
@@ -53,18 +37,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.urlencoded({ extended: true }));
 
 
-app.use('/', indexRouter);
+
 app.use('/auth', authRouter);
-app.use('/users', userRouter);
 app.use('/pets', petsRouter);
 app.use('/reviews', reviewsRouter);
 app.use('/search', searchRouter);
 app.use('/home', homeRouter);
 app.use('/sitter', sitterRouter);
 app.use('/options', optionsRouter);
-app.use('/bookings', bookingsRouter);
-app.use('/chats', chatsRouter);
-
+app.use('/booking', bookingsRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -97,4 +78,4 @@ app.use((err, req, res, next) => {
 });
 
 
-module.exports = { server, app };
+module.exports = app;
