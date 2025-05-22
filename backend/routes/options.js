@@ -94,7 +94,7 @@ router.post('/confirm', async (req, res) => {
   }
 });
 
-// GET /search/options?user_id=OWNER_ID
+// GET /options
 router.get('/', async (req, res) => {
   const ownerId = req.query.user_id;
   if (!ownerId) return res.status(400).json({ error: 'user_id is required' });

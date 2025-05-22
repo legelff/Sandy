@@ -96,9 +96,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Pet not found' });
     }
 
-    if (petCheck.rows[0].owner_id !== req.user.id && req.user.role !== 'employee') {
-      return res.status(403).json({ error: 'Not authorized to delete this pet' });
-    }
+
 
     await client.query('BEGIN');
 
