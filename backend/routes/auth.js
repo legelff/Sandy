@@ -126,7 +126,7 @@ router.post('/register/owner', async (req, res) => {
         } = req.body;
 
         // Validate request body
-        if (!name || !email || !password || !street || !city || !postcode) {
+        if (!name || !email || !password || !street || !city || !postcode || !subscription_id) {
             return res.status(400).json({
                 status: 400,
                 message: 'Details not provided',
@@ -144,7 +144,9 @@ router.post('/register/owner', async (req, res) => {
                 message: 'Email already exists',
                 errType: 'Email'
             });
-        }        // Set latitude and longitude to null
+        }
+
+        // Set latitude and longitude to null
         const latitude = null;
         const longitude = null;
 
@@ -156,12 +158,47 @@ router.post('/register/owner', async (req, res) => {
         try {
             await client.query('BEGIN');
 
+            // Get subscription details - now required
+            let subscriptionDetails = null;
+
+            const subQuery = `
+                SELECT id, name, one_pet, all_species, requests_per_day 
+                FROM owner_subscriptions 
+                WHERE id = $1
+            `;
+            const subResult = await client.query(subQuery, [subscription_id]);
+
+            if (subResult.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Invalid subscription plan',
+                    errType: 'Subscription'
+                });
+            }
+
+            subscriptionDetails = subResult.rows[0];
+
+            // Validate pet limit based on subscription
+            if (subscriptionDetails && pets && Array.isArray(pets)) {
+                if (subscriptionDetails.one_pet && pets.length > 1) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({
+                        status: 400,
+                        message: 'Your subscription plan only allows 1 pet',
+                        errType: 'SubscriptionLimit',
+                        limit: 1,
+                        subscription_name: subscriptionDetails.name
+                    });
+                }
+            }
+
             // Insert user with geocoding data
             const insertUserQuery = `
-        INSERT INTO users (name, email, password, street, city, postcode, role, latitude, longitude)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING id
-      `;
+                INSERT INTO users (name, email, password, street, city, postcode, role, latitude, longitude)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                RETURNING id
+            `;
 
             const userValues = [
                 name,
@@ -179,33 +216,53 @@ router.post('/register/owner', async (req, res) => {
             const userId = userResult.rows[0].id;
 
             // Insert pet owner
-            let validSubscriptionId = subscription_id || null;
-            if (subscription_id) {
-                const subCheck = await client.query(
-                    'SELECT id FROM owner_subscriptions WHERE id = $1',
-                    [subscription_id]
-                );
-                if (subCheck.rows.length === 0) {
-                    validSubscriptionId = null;
-                }
-            }
             const insertOwnerQuery = `
-        INSERT INTO pet_owners (user_id, subscription_id)
-        VALUES ($1, $2)
-        RETURNING id
-      `;
+                INSERT INTO pet_owners (user_id, subscription_id)
+                VALUES ($1, $2)
+                RETURNING id
+            `;
 
-            const ownerValues = [userId, validSubscriptionId];
+            const ownerValues = [userId, subscription_id];
             const ownerResult = await client.query(insertOwnerQuery, ownerValues);
             const ownerId = ownerResult.rows[0].id;
 
             // Insert pets if provided
+            const insertedPets = [];
+
             if (pets && Array.isArray(pets)) {
                 for (const pet of pets) {
-                    // Get species id
+                    // Validate required pet fields
+                    if (!pet.name || !pet.species || pet.age === undefined || pet.age === null ||
+                        !pet.breed || !pet.vaccinations || pet.sterilized === undefined || pet.sterilized === null) {
+                        await client.query('ROLLBACK');
+                        return res.status(400).json({
+                            status: 400,
+                            message: 'Pet details incomplete. Name, species, age, breed, vaccinations, and sterilized status are required.',
+                            errType: 'PetValidation'
+                        });
+                    }
+
+                    // Validate species restrictions if subscription has limitations
+                    if (subscriptionDetails && !subscriptionDetails.all_species && pet.species) {
+                        const allowedSpecies = ['dog', 'cat'];
+                        const petSpecies = pet.species.toLowerCase();
+
+                        if (!allowedSpecies.includes(petSpecies)) {
+                            await client.query('ROLLBACK');
+                            return res.status(400).json({
+                                status: 400,
+                                message: `Your subscription plan only allows Dogs and Cats. "${pet.species}" is not allowed.`,
+                                errType: 'SpeciesRestriction',
+                                allowed_species: ['Dog', 'Cat'],
+                                subscription_name: subscriptionDetails.name
+                            });
+                        }
+                    }
+
+                    // Get or create species
                     let speciesId = null;
                     if (pet.species) {
-                        const speciesQuery = 'SELECT id FROM species WHERE name = $1';
+                        const speciesQuery = 'SELECT id FROM species WHERE LOWER(name) = LOWER($1)';
                         const speciesResult = await client.query(speciesQuery, [pet.species]);
 
                         if (speciesResult.rows.length > 0) {
@@ -218,63 +275,49 @@ router.post('/register/owner', async (req, res) => {
                         }
                     }
 
-                    // Map energy_level string to integer if needed
+                    // Map energy_level string to integer
                     let energyLevelValue = pet.energy_level;
                     if (typeof energyLevelValue === 'string') {
-                        switch (energyLevelValue.toLowerCase()) {
-                            case 'low':
-                                energyLevelValue = 1;
-                                break;
-                            case 'medium':
-                                energyLevelValue = 2;
-                                break;
-                            case 'high':
-                                energyLevelValue = 3;
-                                break;
-                            default:
-                                energyLevelValue = null;
-                        }
+                        const energyLevelMap = {
+                            'low': 1,
+                            'medium': 2,
+                            'high': 3
+                        };
+                        energyLevelValue = energyLevelMap[energyLevelValue.toLowerCase()] || null;
                     }
 
-                    // Map comfort_with_strangers string to integer if needed
+                    // Map comfort_with_strangers string to integer
                     let comfortWithStrangersValue = pet.comfort_with_strangers;
                     if (typeof comfortWithStrangersValue === 'string') {
-                        switch (comfortWithStrangersValue.toLowerCase()) {
-                            case 'poor':
-                                comfortWithStrangersValue = 1;
-                                break;
-                            case 'average':
-                                comfortWithStrangersValue = 2;
-                                break;
-                            case 'good':
-                                comfortWithStrangersValue = 3;
-                                break;
-                            default:
-                                comfortWithStrangersValue = null;
-                        }
+                        const comfortLevelMap = {
+                            'poor': 1,
+                            'average': 2,
+                            'good': 3
+                        };
+                        comfortWithStrangersValue = comfortLevelMap[comfortWithStrangersValue.toLowerCase()] || null;
                     }
 
                     const insertPetQuery = `
-            INSERT INTO pets (
-              owner_id, name, age, breed, personality, 
-              favorite_activities_and_needs, energy_level,
-              comfort_with_strangers, vaccinations, sterilized, species_id
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING id
-          `;
+                        INSERT INTO pets (
+                            owner_id, name, age, breed, personality, 
+                            favorite_activities_and_needs, energy_level,
+                            comfort_with_strangers, vaccinations, sterilized, species_id
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                        RETURNING id
+                    `;
 
                     const petValues = [
                         userId, // owner_id is the user_id according to your schema
                         pet.name,
-                        pet.age || null,
-                        pet.breed || null,
+                        pet.age,
+                        pet.breed,
                         pet.personality || null,
                         pet.favorite_activities_and_needs || null,
                         energyLevelValue,
                         comfortWithStrangersValue,
-                        pet.vaccinations || null,
-                        pet.sterilized || false,
+                        pet.vaccinations,
+                        pet.sterilized,
                         speciesId
                     ];
 
@@ -282,52 +325,67 @@ router.post('/register/owner', async (req, res) => {
                     const petId = petResult.rows[0].id;
 
                     // Insert pet photos if available
+                    const insertedPhotos = [];
                     if (pet.photos && Array.isArray(pet.photos)) {
                         for (const photoUrl of pet.photos) {
                             const insertPhotoQuery = `
-                INSERT INTO pet_photos (pet_id, url)
-                VALUES ($1, $2)
-              `;
-
-                            await client.query(insertPhotoQuery, [petId, photoUrl]);
+                                INSERT INTO pet_photos (pet_id, url)
+                                VALUES ($1, $2)
+                                RETURNING id, url
+                            `;
+                            const photoResult = await client.query(insertPhotoQuery, [petId, photoUrl]);
+                            insertedPhotos.push(photoResult.rows[0]);
                         }
                     }
+
+                    // Track inserted pet for response
+                    insertedPets.push({
+                        id: petId,
+                        ...pet,
+                        energy_level: energyLevelValue,
+                        comfort_with_strangers: comfortWithStrangersValue,
+                        species_id: speciesId,
+                        photos: insertedPhotos
+                    });
                 }
             }
 
             await client.query('COMMIT');
 
-            // Generate JWT token using the imported JWT_SECRET
+            // Generate JWT token
             const token = jwt.sign(
-                { userId, email, role: 'owner' },
+                { id: userId, email, role: 'owner' },
                 JWT_SECRET,
                 { expiresIn: '24h' }
             );
 
-            // Get user details
+            // Get complete user details for response
             const userQuery = `
-        SELECT u.*, po.id as owner_id, po.subscription_id,
-               os.name as subscription_name
-        FROM users u
-        LEFT JOIN pet_owners po ON u.id = po.user_id
-        LEFT JOIN owner_subscriptions os ON po.subscription_id = os.id
-        WHERE u.id = $1
-      `;
+                SELECT u.*, po.id as owner_id, po.subscription_id,
+                       os.name as subscription_name, os.one_pet, os.all_species,
+                       os.requests_per_day, os.is_ad_free, os.extended
+                FROM users u
+                LEFT JOIN pet_owners po ON u.id = po.user_id
+                LEFT JOIN owner_subscriptions os ON po.subscription_id = os.id
+                WHERE u.id = $1
+            `;
             const userDetailsResult = await pool.query(userQuery, [userId]);
             const userDetails = userDetailsResult.rows[0];
             delete userDetails.password; // Remove password from response
 
-            // Get pets
+            // Get pets with all details
             const petsQuery = `
-        SELECT p.*, 
-               json_agg(pp.*) FILTER (WHERE pp.id IS NOT NULL) AS photos,
-               s.name as species_name
-        FROM pets p
-        LEFT JOIN pet_photos pp ON p.id = pp.pet_id
-        LEFT JOIN species s ON p.species_id = s.id
-        WHERE p.owner_id = $1
-        GROUP BY p.id, s.name
-      `;
+                SELECT p.*, 
+                       json_agg(
+                           json_build_object('id', pp.id, 'url', pp.url)
+                       ) FILTER (WHERE pp.id IS NOT NULL) AS photos,
+                       s.name as species_name
+                FROM pets p
+                LEFT JOIN pet_photos pp ON p.id = pp.pet_id
+                LEFT JOIN species s ON p.species_id = s.id
+                WHERE p.owner_id = $1
+                GROUP BY p.id, s.name
+            `;
             const petsResult = await pool.query(petsQuery, [userId]);
             userDetails.pets = petsResult.rows;
 
@@ -349,11 +407,11 @@ router.post('/register/owner', async (req, res) => {
         console.error('Register owner error:', error);
         return res.status(500).json({
             status: 500,
-            message: 'Something went wrong'
+            message: 'Something went wrong',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
-
 
 
 router.post('/register/sitter', async (req, res) => {
@@ -372,8 +430,8 @@ router.post('/register/sitter', async (req, res) => {
             photos
         } = req.body;
 
-        // Validate request body
-        if (!name || !email || !password || !street || !city || !postcode) {
+        // Validate request body - now includes subscription_id and availability as required
+        if (!name || !email || !password || !street || !city || !postcode || !subscription_id || !availability || !Array.isArray(availability) || availability.length === 0) {
             return res.status(400).json({
                 status: 400,
                 message: 'Details not provided',
@@ -391,7 +449,9 @@ router.post('/register/sitter', async (req, res) => {
                 message: 'Email already exists',
                 errType: 'Email'
             });
-        }        // Set latitude and longitude to null
+        }
+
+        // Set latitude and longitude to null
         const latitude = null;
         const longitude = null;
 
@@ -402,6 +462,19 @@ router.post('/register/sitter', async (req, res) => {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
+
+            // Validate sitter subscription_id before proceeding
+            const subCheck = await client.query(
+                'SELECT id FROM sitter_subscriptions WHERE id = $1',
+                [subscription_id]
+            );
+            if (subCheck.rows.length === 0) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Invalid subscription plan selected',
+                    errType: 'Subscription'
+                });
+            }
 
             // Insert user with geocoded coordinates
             const insertUserQuery = `
@@ -425,18 +498,7 @@ router.post('/register/sitter', async (req, res) => {
             const userResult = await client.query(insertUserQuery, userValues);
             const userId = userResult.rows[0].id;
 
-            // Validate sitter subscription_id
-            let validSitterSubscriptionId = subscription_id || null;
-            if (subscription_id) {
-                const subCheck = await client.query(
-                    'SELECT id FROM sitter_subscriptions WHERE id = $1',
-                    [subscription_id]
-                );
-                if (subCheck.rows.length === 0) {
-                    validSitterSubscriptionId = null;
-                }
-            }
-
+            // Insert sitter with validated subscription_id
             const insertSitterQuery = `
     INSERT INTO pet_sitters (
       user_id, 
@@ -451,7 +513,7 @@ router.post('/register/sitter', async (req, res) => {
 
             const sitterValues = [
                 userId,
-                validSitterSubscriptionId,
+                subscription_id, // Now guaranteed to be valid
                 experience_years || 0,
                 personality_and_motivation || null,
                 false // default value for extended
@@ -460,22 +522,29 @@ router.post('/register/sitter', async (req, res) => {
             const sitterResult = await client.query(insertSitterQuery, sitterValues);
             const sitterId = sitterResult.rows[0].id;
 
-            // Insert availability if provided
+            // Insert availability (now required)
             if (availability && Array.isArray(availability)) {
                 for (const slot of availability) {
-                    if (slot.day_of_week && (slot.start_time || slot.end_time)) {
-                        const insertAvailabilityQuery = `
+                    // Validate each availability slot
+                    if (!slot.day_of_week) {
+                        return res.status(400).json({
+                            status: 400,
+                            message: 'Each availability slot must include day_of_week',
+                            errType: 'Availability'
+                        });
+                    }
+
+                    const insertAvailabilityQuery = `
               INSERT INTO sitter_availability (sitter_id, day_of_week, start_time, end_time)
               VALUES ($1, $2, $3, $4)
             `;
 
-                        await client.query(insertAvailabilityQuery, [
-                            sitterId,
-                            slot.day_of_week,
-                            slot.start_time || null,
-                            slot.end_time || null
-                        ]);
-                    }
+                    await client.query(insertAvailabilityQuery, [
+                        sitterId,
+                        slot.day_of_week,
+                        slot.start_time || null,
+                        slot.end_time || null
+                    ]);
                 }
             }
 
@@ -495,7 +564,7 @@ router.post('/register/sitter', async (req, res) => {
 
             // Generate JWT token
             const token = jwt.sign(
-                { userId, email, role: 'sitter' },
+                { id: userId, email, role: 'sitter' },
                 JWT_SECRET,
                 { expiresIn: '24h' }
             );
@@ -579,6 +648,7 @@ router.post('/register/sitter', async (req, res) => {
 router.get('/user/profile', verifyToken, async (req, res) => {
     try {
         const userId = req.user.id; // Extracted from the JWT token
+        console.log(userId);
 
         // Get user data
         const userQuery = 'SELECT id, name, email, role, street, city, postcode FROM users WHERE id = $1';
