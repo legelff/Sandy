@@ -3,6 +3,7 @@ const router = express.Router();
 const { Pool } = require('pg');
 const { verifyToken } = require('../middleware/auth');
 
+// PostgreSQL connection pool setup
 const pool = new Pool({
     user: process.env.DB_USER ?? 'postgres',
     host: 'localhost',
@@ -11,7 +12,7 @@ const pool = new Pool({
     port: process.env.DB_PORT ?? 5432,
 });
 
-// Helper to check if user is owner or sitter in a booking
+// Helper to check if user has permission for a booking
 async function userHasBookingPermission(user, bookingId) {
     const query = 'SELECT * FROM bookings WHERE id = $1';
     const result = await pool.query(query, [bookingId]);
@@ -20,7 +21,7 @@ async function userHasBookingPermission(user, bookingId) {
     return booking.owner_id === user.id || booking.sitter_id === user.id;
 }
 
-
+//  Create a new booking
 router.post('/', verifyToken, async (req, res) => {
     try {
         const {
@@ -29,28 +30,30 @@ router.post('/', verifyToken, async (req, res) => {
             start_datetime,
             end_datetime,
             status,
-            notes
+            service_tier
         } = req.body;
 
         const owner_id = req.user.id;
 
+        // Validate required fields
         if (!owner_id || !sitter_id || !Array.isArray(pet_ids) || pet_ids.length === 0 || !start_datetime || !end_datetime) {
             return res.status(400).json({ status: 400, message: 'Missing required fields or invalid pet_ids' });
         }
 
+        // Insert booking
         const bookingQuery = `
-            INSERT INTO bookings (owner_id, sitter_id, start_datetime, end_datetime, status, notes)
+            INSERT INTO bookings (owner_id, sitter_id, start_datetime, end_datetime, status, service_tier)
             VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING *
-        `;
-        const bookingValues = [owner_id, sitter_id, start_datetime, end_datetime, status || 'pending', notes || null];
+            RETURNING *`;
+
+        const bookingValues = [owner_id, sitter_id, start_datetime, end_datetime, status || 'requested', service_tier || null];
         const bookingResult = await pool.query(bookingQuery, bookingValues);
         const booking = bookingResult.rows[0];
 
+        // Insert related pet_ids
         const bookingPetsQuery = `
             INSERT INTO booking_pets (booking_id, pet_id)
-            VALUES ${pet_ids.map((_, i) => `($1, $${i + 2})`).join(',')}
-        `;
+            VALUES ${pet_ids.map((_, i) => `($1, $${i + 2})`).join(',')}`;
         await pool.query(bookingPetsQuery, [booking.id, ...pet_ids]);
 
         booking.pet_ids = pet_ids;
@@ -61,7 +64,7 @@ router.post('/', verifyToken, async (req, res) => {
     }
 });
 
-
+//  Get all bookings where the user is either an owner or sitter
 router.get('/user/:userId', verifyToken, async (req, res) => {
     const userId = parseInt(req.params.userId);
     if (req.user.id !== userId) {
@@ -77,6 +80,7 @@ router.get('/user/:userId', verifyToken, async (req, res) => {
 
         const bookings = result.rows;
 
+        // Attach pet_ids to each booking
         for (const booking of bookings) {
             const petsResult = await pool.query('SELECT pet_id FROM booking_pets WHERE booking_id = $1', [booking.id]);
             booking.pet_ids = petsResult.rows.map(row => row.pet_id);
@@ -89,7 +93,7 @@ router.get('/user/:userId', verifyToken, async (req, res) => {
     }
 });
 
-
+//  Get a specific booking by ID if the user has access
 router.get('/:id', verifyToken, async (req, res) => {
     const { id } = req.params;
     try {
@@ -99,10 +103,13 @@ router.get('/:id', verifyToken, async (req, res) => {
         }
 
         const booking = result.rows[0];
+
+        // Permission check
         if (booking.owner_id !== req.user.id && booking.sitter_id !== req.user.id) {
             return res.status(403).json({ status: 403, message: 'Forbidden' });
         }
 
+        // Attach pet_ids
         const petsResult = await pool.query('SELECT pet_id FROM booking_pets WHERE booking_id = $1', [id]);
         booking.pet_ids = petsResult.rows.map(row => row.pet_id);
 
@@ -113,7 +120,7 @@ router.get('/:id', verifyToken, async (req, res) => {
     }
 });
 
-
+// Update an existing booking (if user is owner or sitter)
 router.put('/:id', verifyToken, async (req, res) => {
     const id = parseInt(req.params.id);
     const {
@@ -132,6 +139,7 @@ router.put('/:id', verifyToken, async (req, res) => {
             return res.status(403).json({ status: 403, message: 'Forbidden' });
         }
 
+        // Update booking
         const updateQuery = `
             UPDATE bookings
             SET owner_id = $1,
@@ -141,20 +149,19 @@ router.put('/:id', verifyToken, async (req, res) => {
                 status = $5,
                 notes = $6
             WHERE id = $7
-            RETURNING *
-        `;
+            RETURNING *`;
         const values = [owner_id, sitter_id, start_datetime, end_datetime, status, notes, id];
         const result = await pool.query(updateQuery, values);
         if (result.rows.length === 0) {
             return res.status(404).json({ status: 404, message: 'Booking not found' });
         }
 
+        // Replace pet associations
         await pool.query('DELETE FROM booking_pets WHERE booking_id = $1', [id]);
         if (Array.isArray(pet_ids) && pet_ids.length > 0) {
             const insertQuery = `
                 INSERT INTO booking_pets (booking_id, pet_id)
-                VALUES ${pet_ids.map((_, i) => `($1, $${i + 2})`).join(',')}
-            `;
+                VALUES ${pet_ids.map((_, i) => `($1, $${i + 2})`).join(',')}`;
             await pool.query(insertQuery, [id, ...pet_ids]);
         }
 
@@ -166,7 +173,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
 });
 
-
+// Delete a booking (if user is owner or sitter)
 router.delete('/:id', verifyToken, async (req, res) => {
     const id = parseInt(req.params.id);
     try {
@@ -175,7 +182,10 @@ router.delete('/:id', verifyToken, async (req, res) => {
             return res.status(403).json({ status: 403, message: 'Forbidden' });
         }
 
+        // Delete related pet records
         await pool.query('DELETE FROM booking_pets WHERE booking_id = $1', [id]);
+
+        // Delete booking
         const deleteResult = await pool.query('DELETE FROM bookings WHERE id = $1 RETURNING *', [id]);
         if (deleteResult.rows.length === 0) {
             return res.status(404).json({ status: 404, message: 'Booking not found' });

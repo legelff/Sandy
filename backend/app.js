@@ -31,8 +31,8 @@ const searchRouter = require('./routes/search');
 const homeRouter = require('./routes/home');
 const sitterRouter = require('./routes/sitter');
 const optionsRouter = require('./routes/options');
-const bookingsRouter = require('./routes/booking');
-const chatsRouter = require('./routes/chats')(io);
+const bookingRouter = require('./routes/booking');
+const chatRouter = require('./routes/chat')(io);
 
 
 
@@ -60,8 +60,8 @@ app.use('/search', searchRouter);
 app.use('/home', homeRouter);
 app.use('/sitter', sitterRouter);
 app.use('/options', optionsRouter);
-app.use('/booking', bookingsRouter);
-app.use('/chats', chatsRouter);
+app.use('/booking', bookingRouter);
+app.use('/chat', chatRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
