@@ -10,6 +10,48 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: 5432,
 });
+async function getPersonalityMatchScore(pet, sitterPersonality) {
+  try {
+    const prompt = `
+A pet has the following traits:
+- Personality: ${pet.personality}
+- Favorite Activities: ${pet.favorite_activities_and_needs}
+- Energy Level: ${pet.energy_level}
+- Comfort with Strangers: ${pet.comfort_with_strangers}
+
+A pet sitter wrote this about themselves:
+"${sitterPersonality}"
+
+From 1 to 10, how compatible is this sitter with this pet? Respond with only a number. Do not explain.
+    `.trim();
+
+    const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ]
+    }, {
+      headers: {
+        Authorization: `Bearer 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`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const raw = response.data.choices[0].message.content.trim();
+    console.log("🔍 GROQ response:", raw); // Debug line to inspect result
+
+    const match = raw.match(/\d+/); // ✅ Fixed regex: no double backslash
+    const score = match ? parseInt(match[0]) : 5;
+
+    return isNaN(score) ? 5 : score;
+  } catch (err) {
+    console.error('❌ AI match error:', err.message);
+    return 5;
+  }
+}
 
 // Geocode helper
 async function geocode(address) {
@@ -56,6 +98,7 @@ function getDaysBetween(start, end) {
 }
 
 router.get('/results', async (req, res) => {
+
   const {
     pets = [],
     start_date,
@@ -79,7 +122,7 @@ router.get('/results', async (req, res) => {
     const requiredDays = getDaysBetween(start_date, end_date);
 
     const query = `
-      SELECT u.id AS user_id, u.name, u.latitude, u.longitude,
+      SELECT u.id AS user_id, u.name, u.street, u.city, u.postcode,
              ps.id AS sitter_id, ps.extended, ps.experience_years, ps.personality_and_motivation,
              ss.name AS subscription,
              ARRAY(
@@ -107,7 +150,6 @@ router.get('/results', async (req, res) => {
     `;
 
     const result = await pool.query(query, [serviceTierRequired]);
-
     const matchingSitters = [];
 
     for (const sitter of result.rows) {
@@ -115,15 +157,26 @@ router.get('/results', async (req, res) => {
       const supportsAllPets = speciesRequested.every(spec => supported.includes(spec));
       const availableDays = sitter.available_days || [];
       const isAvailable = requiredDays.every(day => availableDays.includes(day));
-
       if (!supportsAllPets || !isAvailable) continue;
+
+      let totalPersonalityScore = 0;
+      for (const pet of pets) {
+        const score = await getPersonalityMatchScore(pet, sitter.personality_and_motivation);
+        totalPersonalityScore += score;
+      }
+      const avgPersonalityScore = totalPersonalityScore / pets.length;
+      const sitterAddress = `${sitter.street}, ${sitter.city}, ${sitter.postcode}`;
+      const sitterCoords = await geocode(sitterAddress);
 
       const distance = getDistanceKm(
         bookingCoords.lat,
         bookingCoords.lng,
-        sitter.latitude,
-        sitter.longitude
+        sitterCoords.lat,
+        sitterCoords.lng
       );
+
+      const combinedScore = Number(((10 - distance) + avgPersonalityScore).toFixed(2));
+
 
       matchingSitters.push({
         sitter_id: sitter.sitter_id,
@@ -132,12 +185,13 @@ router.get('/results', async (req, res) => {
         pictures: sitter.pictures,
         average_rating: sitter.average_rating || 0,
         supported_pets: supported,
-        personality: sitter.personality_and_motivation
+        personality: sitter.personality_and_motivation,
+        personality_match_score: avgPersonalityScore,
+        combined_score: combinedScore
       });
     }
 
-    // Sort by distance ascending
-    matchingSitters.sort((a, b) => a.distance - b.distance);
+    matchingSitters.sort((a, b) => b.combined_score - a.combined_score);
 
     res.status(200).json({ matching_sitters: matchingSitters });
   } catch (err) {
@@ -145,6 +199,7 @@ router.get('/results', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 router.get('/sitter', async (req, res) => {
   const sitterUserId = req.query.user_id;

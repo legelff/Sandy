@@ -94,18 +94,30 @@ router.post('/confirm', async (req, res) => {
   }
 });
 
-// GET /options
 router.get('/', async (req, res) => {
-  const ownerId = req.query.user_id;
-  if (!ownerId) return res.status(400).json({ error: 'user_id is required' });
+  const {
+    user_id: ownerId,
+    street: ownerStreet,
+    city: ownerCity,
+    postcode: ownerPostcode
+  } = req.query;
+
+  if (!ownerId || !ownerStreet || !ownerCity || !ownerPostcode) {
+    return res.status(400).json({ error: 'user_id and full address are required' });
+  }
 
   try {
-    const ownerResult = await pool.query('SELECT latitude, longitude FROM users WHERE id = $1', [ownerId]);
-    const owner = ownerResult.rows[0];
+    // Geocode owner's address from the request
+    const ownerCoords = await geocode(`${ownerStreet}, ${ownerCity}, ${ownerPostcode}`);
 
     const bookingsQuery = `
-      SELECT b.id AS booking_id, b.start_datetime, b.end_datetime, b.street AS street_address, b.city, b.postcode,
-             b.service_tier, u.name AS sitter_name, u.id AS sitter_user_id, ps.id AS sitter_id
+      SELECT b.id AS booking_id, b.start_datetime, b.end_datetime,
+             b.service_tier,
+             u.name AS sitter_name, u.id AS sitter_user_id,
+             ps.id AS sitter_id,
+             u.street AS sitter_street,
+             u.city AS sitter_city,
+             u.postcode AS sitter_postcode
       FROM bookings b
       JOIN pet_sitters ps ON ps.id = b.sitter_id
       JOIN users u ON u.id = ps.user_id
@@ -117,8 +129,9 @@ router.get('/', async (req, res) => {
     const response = [];
 
     for (const b of bookings) {
-      const sitterCoords = await geocode(`${b.street_address}, ${b.city}, ${b.postcode}`);
-      const distance = getDistanceKm(owner.latitude, owner.longitude, sitterCoords.lat, sitterCoords.lng);
+      const sitterAddress = `${b.sitter_street}, ${b.sitter_city}, ${b.sitter_postcode}`;
+      const sitterCoords = await geocode(sitterAddress);
+      const distance = getDistanceKm(ownerCoords.lat, ownerCoords.lng, sitterCoords.lat, sitterCoords.lng);
 
       const petsQuery = `
         SELECT p.name, s.name AS species
@@ -150,11 +163,10 @@ router.get('/', async (req, res) => {
         end_date: b.end_datetime,
         selected_pets: petsRes.rows.map(p => p.name),
         distance: parseFloat(distance.toFixed(2)),
-        street_address: b.street_address,
-        city: b.city,
-        postcode: b.postcode,
-        service_tier: b.service_tier || 'Basic',
-        relevancy_score: parseFloat((Math.random() * 2 + 8).toFixed(1))
+        street_address: b.sitter_street,
+        city: b.sitter_city,
+        postcode: b.sitter_postcode,
+        service_tier: b.service_tier || 'Basic'
       });
     }
 
@@ -164,5 +176,6 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 module.exports = router;
