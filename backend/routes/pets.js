@@ -27,8 +27,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Add a new pet
-router.post('/', verifyToken, async (req, res) => {
+// Add a new pet 
+router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     const {
@@ -41,11 +41,13 @@ router.post('/', verifyToken, async (req, res) => {
       comfort_with_strangers,
       vaccinations,
       sterilized,
-      species_id
+      species_id,
+      owner_id // Expect owner_id to come from the request body
     } = req.body;
 
-    // Use the authenticated user's ID as owner_id
-    const owner_id = req.user.id;
+    if (!owner_id) {
+      return res.status(400).json({ error: 'owner_id is required' });
+    }
 
     const insertPet = await client.query(
       `INSERT INTO pets 
