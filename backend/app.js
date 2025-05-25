@@ -6,6 +6,18 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
 require('./config/db');
+const http = require('http');
+const { Server } = require('socket.io');
+
+
+const app = express();
+const server = http.createServer(app);
+
+// create socket.io server
+const io = new Server(server, {
+  cors: { origin: '*' },
+  path: '/socket.io/'
+});
 
 
 
@@ -13,15 +25,17 @@ require('./config/db');
 const authRouter = require('./routes/auth');
 const petsRouter = require('./routes/pets');
 const reviewsRouter = require('./routes/reviews');
+const userRouter = require('./routes/users');
 
 const searchRouter = require('./routes/search');
 const homeRouter = require('./routes/home');
 const sitterRouter = require('./routes/sitter');
 const optionsRouter = require('./routes/options');
-const bookingsRouter = require('./routes/booking');
+const bookingRouter = require('./routes/booking');
+const chatRouter = require('./routes/chat')(io);
 
 
-const app = express();
+
 const PORT = process.env.PORT
 
 // view engine setup
@@ -39,13 +53,15 @@ app.use(express.urlencoded({ extended: true }));
 
 
 app.use('/auth', authRouter);
+app.use('/users', userRouter);
 app.use('/pets', petsRouter);
 app.use('/reviews', reviewsRouter);
 app.use('/search', searchRouter);
 app.use('/home', homeRouter);
 app.use('/sitter', sitterRouter);
 app.use('/options', optionsRouter);
-app.use('/booking', bookingsRouter);
+app.use('/booking', bookingRouter);
+app.use('/chat', chatRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -77,5 +93,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-
-module.exports = app;
+module.exports = { server, app };
