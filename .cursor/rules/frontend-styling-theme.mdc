@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Central Theme: All styling values (colors, spacing, fonts, sizes) must come from src/theme/theme.ts. Do not use raw string/number values (e.g., '#FFFFFF', 16).
+Styling Method: Use StyleSheet.create for all component styles.
+Icons:
+Source: Use lucide-react-native exclusively.
+
+Sizing: Icon sizes must be imported from the theme file (src/theme/theme.ts).

@@ -1,0 +1,20 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Source Directory: All code resides in frontend/src.
+Core Directories: Adhere strictly to this structure:
+src/assets: Images, fonts.
+src/components: Reusable UI components.
+common/: Atomic components (Button, Input).
+layout/: Structural components (Header, Container).
+src/hooks: Custom React hooks (useCamelCase.ts).
+src/navigation: All React Navigation setup.
+src/screens: Top-level screen components.
+src/services: API call logic.
+src/store: Global state (Zustand/Redux).
+src/theme: Centralized theme and styling values.
+src/types: Global TypeScript definitions.
+
+src/utils: Helper functions.
