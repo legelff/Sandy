@@ -3,7 +3,4 @@ description:
 globs: 
 alwaysApply: true
 ---
-Library: Use @react-navigation/native-stack.
-Setup: The main navigator is defined in src/navigation/AppNavigator.tsx.
-
-Type-Safe Routes: Use the types defined in src/navigation/navigation.types.ts for all navigation actions (useNavigation, route props). This ensures type safety for route names and parameters.
+Library: Use Expo Router.
