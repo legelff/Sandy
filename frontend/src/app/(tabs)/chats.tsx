@@ -1,16 +1,71 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, FlatList, Text as RNText } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+import ChatItemCard, { ChatItem } from '../../components/chats/ChatItemCard';
 import { colors } from '../../theme';
 
+// Placeholder data for chats
+const DUMMY_CHATS: ChatItem[] = [
+    {
+        id: 'chat1',
+        sitterName: 'Alice Wonderland',
+        petName: 'Buddy',
+    },
+    {
+        id: 'chat2',
+        sitterName: 'Bob The Builder',
+        petName: 'Lucy',
+    },
+    {
+        id: 'chat3',
+        sitterName: 'Diana Prince',
+        petName: 'Charlie',
+    },
+];
+
 const ChatsScreen: React.FC = () => {
+    const router = useRouter();
+    const [chats, setChats] = useState<ChatItem[]>(DUMMY_CHATS);
+
+    const handleNavigateToChat = (chatId: string, sitterName: string) => {
+        // Navigate to an individual chat screen, passing chatId and sitterName
+        // This screen (e.g., /chats/[chatId].tsx) would need to be created.
+        // router.push(`/chats/${chatId}?sitterName=${encodeURIComponent(sitterName)}`);
+        router.push({
+            pathname: '/(tabs)/chats/conversation', // Placeholder for actual chat screen route
+            params: { chatId, sitterName }
+        });
+        console.log(`Navigating to chat with ${sitterName} (ID: ${chatId})`);
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                <Text style={styles.title}>Chats Screen</Text>
-                <Text style={styles.placeholder}>Chat functionality will be implemented here.</Text>
-            </View>
-        </SafeAreaView>
+        <PaperProvider>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.headerContainer}>
+                    <Title style={styles.headerTitle}>Your Conversations</Title>
+                    <Text style={styles.headerSubtitle}>
+                        Continue your chats with pet sitters.
+                    </Text>
+                </View>
+
+                <FlatList
+                    data={chats}
+                    renderItem={({ item }) => (
+                        <ChatItemCard chatItem={item} onPress={handleNavigateToChat} />
+                    )}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListEmptyComponent={() => (
+                        <View style={styles.emptyContainer}>
+                            <RNText style={styles.emptyText}>No active chats yet.</RNText>
+                            <RNText style={styles.emptySubText}>Accepted requests will appear here.</RNText>
+                        </View>
+                    )}
+                />
+            </SafeAreaView>
+        </PaperProvider>
     );
 };
 
@@ -19,22 +74,47 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    content: {
+    headerContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 16,
+        backgroundColor: colors.background,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: colors.primary,
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        color: colors.textDark,
+        textAlign: 'center',
+    },
+    listContentContainer: {
+        paddingVertical: 16, // Add some vertical padding
+        paddingHorizontal: 16,
+    },
+    emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        marginTop: 50,
     },
-    title: {
-        fontSize: 24,
+    emptyText: {
+        fontSize: 18,
         fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 16,
+        color: colors.textDark,
+        marginBottom: 8,
     },
-    placeholder: {
-        fontSize: 16,
+    emptySubText: {
+        fontSize: 14,
         color: colors.textDark,
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
 });
 
