@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, Button, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { PetFormData } from './PetFormScreen'; // Import only the data type
+import { colors, spacing } from '../../../theme'; // Added import for theme
+import { PawPrint } from 'lucide-react-native';
 
 // Expanded Pet interface to include all fields from PetFormData
 interface Pet extends PetFormData {
@@ -58,7 +60,7 @@ const AddPetsScreen = () => {
             // return; // Uncomment to enforce adding pets
         }
         console.log('Proceeding from Add Pets with:', pets);
-        router.push('/(tabs)/home'); // Placeholder navigation
+        router.push('/(tabs)'); // Navigate to the tabs group, defaults to index.tsx
     };
 
     const handlePrevious = () => {
@@ -66,26 +68,26 @@ const AddPetsScreen = () => {
     };
 
     const renderPetItem = ({ item }: { item: Pet }) => (
-        <View style={styles.petItemContainer}>
-            <View style={styles.petInfo}>
-                <Text style={styles.petName}>{item.name}</Text>
-                <Text style={styles.petSpecies}>{item.species} ({item.breed})</Text>
+        <View className="flex-row justify-between items-center py-3 px-2.5 border-b border-gray-200 bg-gray-50 rounded-md mb-sm">
+            <View className="flex-1">
+                <Text className="text-lg font-bold text-text-dark">{item.name}</Text>
+                <Text className="text-sm text-gray-600">{item.species} ({item.breed})</Text>
             </View>
-            <View style={styles.petActions}>
-                <TouchableOpacity onPress={() => navigateToEditPetForm(item)} style={styles.actionButton}>
-                    <Text style={styles.actionText}>Edit</Text>
+            <View className="flex-row">
+                <TouchableOpacity onPress={() => navigateToEditPetForm(item)} className="ml-2.5 py-1 px-2">
+                    <Text className="text-primary text-sm">Edit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDeletePet(item.id)} style={styles.actionButton}>
-                    <Text style={[styles.actionText, styles.deleteText]}>Delete</Text>
+                <TouchableOpacity onPress={() => handleDeletePet(item.id)} className="ml-2.5 py-1 px-2">
+                    <Text className="text-red-500 text-sm">Delete</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Add Your Pets</Text>
-            <Text style={styles.subtitle}>
+        <View className="flex-1 p-md pt-8 bg-background mt-8">
+            <Text className="text-2xl font-bold mb-sm text-center text-text-dark">Add Your Pets</Text>
+            <Text className="text-base text-gray-500 mb-lg text-center px-2.5">
                 You can add one or more pets. Each pet will have its own profile.
             </Text>
 
@@ -93,94 +95,25 @@ const AddPetsScreen = () => {
                 data={pets}
                 renderItem={renderPetItem}
                 keyExtractor={(item) => item.id}
-                style={styles.list}
-                ListEmptyComponent={<Text style={styles.emptyListText}>No pets added yet. Tap "Add Pet" to start.</Text>}
+                className="flex-grow mb-lg"
+                ListEmptyComponent={<Text className="text-center mt-lg text-gray-500 text-base">No pets added yet. Tap "Add Pet" to start.</Text>}
             />
 
-            <Button title="Add Pet" onPress={navigateToAddPetForm} />
+            <View className="mb-sm">
+                <Button title="Add Pet" onPress={navigateToAddPetForm} color={colors.primary} />
+            </View>
 
-            <View style={styles.navigationButtons}>
-                <Button title="Previous" onPress={handlePrevious} />
-                <Button title="Next" onPress={handleNext} />
+            <View className="flex-row justify-between items-center w-full py-2.5">
+                <View className="w-2/5">
+                    <Button title="Previous" onPress={handlePrevious} color={colors.primary} />
+                </View>
+                <PawPrint size={24} color={colors.primary} />
+                <View className="w-2/5">
+                    <Button title="Next" onPress={handleNext} color={colors.primary} />
+                </View>
             </View>
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 16,
-        paddingTop: 30, // More space at the top
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: 'gray',
-        marginBottom: 20,
-        textAlign: 'center',
-        paddingHorizontal: 10,
-    },
-    list: {
-        flexGrow: 1,
-        marginBottom: 20,
-    },
-    petItemContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-        backgroundColor: '#f9f9f9',
-        borderRadius: 5,
-        marginBottom: 8,
-    },
-    petInfo: {
-        flex: 1, // Allow pet info to take available space
-    },
-    petName: {
-        fontSize: 18, // Slightly larger name
-        fontWeight: 'bold',
-    },
-    petSpecies: {
-        fontSize: 14,
-        color: '#555',
-    },
-    petActions: {
-        flexDirection: 'row',
-    },
-    actionButton: {
-        marginLeft: 10,
-        paddingVertical: 5,
-        paddingHorizontal: 8,
-    },
-    actionText: {
-        color: 'blue',
-        fontSize: 14,
-    },
-    deleteText: {
-        color: 'red',
-    },
-    emptyListText: {
-        textAlign: 'center',
-        marginTop: 20,
-        color: 'gray',
-        fontSize: 16,
-    },
-    navigationButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        width: '100%',
-        paddingVertical: 10, // Added padding
-    },
-    // Modal styles will be part of PetFormModal
-});
 
 export default AddPetsScreen; 

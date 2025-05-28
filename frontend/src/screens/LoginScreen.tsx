@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Button, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { TextInput as PaperTextInput } from 'react-native-paper';
+import { colors, spacing } from '../theme';
 
 interface LoginScreenProps {
     onNavigateToRegister: () => void;
@@ -42,27 +43,27 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
     };
 
     return (
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-            <View style={styles.container}>
-                <Text style={styles.title}>Login</Text>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="bg-background">
+            <View className="justify-center p-md">
+                <Text className="text-2xl font-bold mb-lg text-center text-text-dark">Login</Text>
 
                 <PaperTextInput
                     label="Email"
                     value={email}
                     onChangeText={(text) => { setEmail(text); if (errors.email) setErrors(prev => ({ ...prev, email: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     mode="outlined"
                     error={!!errors.email}
                 />
-                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+                {errors.email && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.email}</Text>}
 
                 <PaperTextInput
                     label="Password"
                     value={password}
                     onChangeText={(text) => { setPassword(text); if (errors.password) setErrors(prev => ({ ...prev, password: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     secureTextEntry={!showPassword}
                     mode="outlined"
                     error={!!errors.password}
@@ -73,50 +74,18 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
                         />
                     }
                 />
-                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                {errors.password && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.password}</Text>}
 
-                <Button title="Login" onPress={handleLogin} />
+                <View className="mt-md mb-sm">
+                    <Button title="Login" onPress={handleLogin} color={colors.primary} />
+                </View>
 
-                <TouchableOpacity onPress={onNavigateToRegister} style={styles.toggleLink}>
-                    <Text style={styles.toggleText}>Don't have an account? Register</Text>
+                <TouchableOpacity onPress={onNavigateToRegister} className="mt-lg items-center">
+                    <Text className="text-primary underline">Don't have an account? Register</Text>
                 </TouchableOpacity>
             </View>
         </ScrollView>
     );
 };
-
-const styles = StyleSheet.create({
-    scrollContainer: {
-        flexGrow: 1,
-        justifyContent: 'center',
-    },
-    container: {
-        justifyContent: 'center',
-        padding: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    input: {
-        marginBottom: 10,
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 12,
-        marginBottom: 10,
-        marginLeft: 8,
-    },
-    toggleLink: {
-        marginTop: 20,
-        alignItems: 'center',
-    },
-    toggleText: {
-        color: 'blue',
-        textDecorationLine: 'underline',
-    },
-});
 
 export default LoginScreen; 

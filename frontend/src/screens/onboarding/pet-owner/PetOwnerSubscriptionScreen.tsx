@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Button, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CheckCircle2, XCircle } from 'lucide-react-native';
+import { CheckCircle2, XCircle, PawPrint } from 'lucide-react-native';
+import { colors, spacing } from '../../../theme';
 
 // Define feature names directly for clarity in the options
 const FEATURE_NAME = {
@@ -81,107 +82,60 @@ const PetOwnerSubscriptionScreen = () => {
     };
 
     return (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContainer}>
-            <Text style={styles.title}>Choose Your Subscription</Text>
-            <Text style={styles.subtitle}>Select a plan that works best for you as a Pet Owner.</Text>
+        <ScrollView
+            className="flex-1 bg-background"
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.lg, paddingHorizontal: spacing.md }}
+        >
+            <Text
+                className="text-2xl font-bold mb-sm text-center text-text-dark"
+            >Choose Your Subscription</Text>
+            <Text
+                className="text-base text-gray-500 mb-lg text-center px-md"
+            >Select a plan that works best for you as a Pet Owner.</Text>
 
             {SUBSCRIPTION_OPTIONS.map((option) => (
                 <TouchableOpacity
                     key={option.id}
-                    style={[
-                        styles.optionButton,
-                        selectedSubscription === option.id && styles.selectedOption,
-                    ]}
+                    className={`w-full max-w-md p-md border rounded-lg mb-lg 
+                                ${selectedSubscription === option.id ? 'border-primary bg-primary/10' : 'border-gray-300 bg-white'}`}
                     onPress={() => handleSelectSubscription(option.id)}
                 >
-                    <Text style={styles.optionName}>{option.name} - {option.price}</Text>
-                    <View style={styles.featuresContainer}>
+                    <View className="flex-row justify-between items-center mb-sm">
+                        <Text className="text-xl font-bold text-text-dark">{option.name}</Text>
+                        <Text className="text-xl font-bold text-text-dark">{option.price}</Text>
+                    </View>
+                    <View
+                        className="mt-sm self-stretch"
+                    >
                         {option.features.map((feature, index) => (
-                            <View key={index} style={styles.featureItem}>
+                            <View key={index}
+                                className="flex-row items-center mb-sm"
+                            >
                                 {feature.included ?
-                                    <CheckCircle2 color="green" size={18} style={styles.icon} /> :
-                                    <XCircle color="red" size={18} style={styles.icon} />}
-                                <Text style={styles.featureText}>{feature.name}</Text>
+                                    <CheckCircle2 color="green" size={18} /> :
+                                    <XCircle color="red" size={18} />}
+                                <Text
+                                    className="text-sm text-text-dark flex-shrink ml-sm"
+                                >{feature.name}</Text>
                             </View>
                         ))}
                     </View>
                 </TouchableOpacity>
             ))}
 
-            <View style={styles.navigationButtons}>
-                <Button title="Previous" onPress={handlePrevious} />
-                <Button title="Next" onPress={handleNext} disabled={!selectedSubscription} />
+            <View
+                className="flex-row justify-between items-center w-full mt-lg px-md"
+            >
+                <View className="w-2/5">
+                    <Button title="Previous" onPress={handlePrevious} color={colors.primary} />
+                </View>
+                <PawPrint size={24} color={colors.primary} />
+                <View className="w-2/5">
+                    <Button title="Next" onPress={handleNext} disabled={!selectedSubscription} color={colors.primary} />
+                </View>
             </View>
         </ScrollView>
     );
 };
-
-const styles = StyleSheet.create({
-    scrollView: {
-        flex: 1,
-    },
-    scrollContainer: {
-        flexGrow: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 20,
-        paddingHorizontal: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: 'gray',
-        marginBottom: 25,
-        textAlign: 'center',
-        paddingHorizontal: 20,
-    },
-    optionButton: {
-        width: '95%',
-        padding: 15,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        marginBottom: 20,
-    },
-    selectedOption: {
-        borderColor: 'blue',
-        backgroundColor: '#e6f0ff',
-    },
-    optionName: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 10,
-        textAlign: 'center',
-    },
-    featuresContainer: {
-        marginTop: 10,
-        alignSelf: 'stretch',
-    },
-    featureItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    featureText: {
-        fontSize: 14,
-        marginLeft: 8,
-        flexShrink: 1,
-    },
-    icon: {
-        // marginRight: 5, // Set on featureText.marginLeft instead for consistency
-    },
-    navigationButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        width: '100%',
-        marginTop: 20,
-        paddingHorizontal: 20,
-    },
-});
 
 export default PetOwnerSubscriptionScreen; 

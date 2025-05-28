@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Button, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Button, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { TextInput as PaperTextInput } from 'react-native-paper';
+import { colors, spacing } from '../theme';
 
 interface RegistrationScreenProps {
     onNavigateToLogin: () => void;
@@ -57,37 +58,37 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onNavigateToLog
     };
 
     return (
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-            <View style={styles.container}>
-                <Text style={styles.title}>Create Account</Text>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="bg-background">
+            <View className="justify-center p-md">
+                <Text className="text-2xl font-bold mb-lg text-center text-text-dark">Create Account</Text>
 
                 <PaperTextInput
                     label="Name"
                     value={name}
                     onChangeText={(text) => { setName(text); if (errors.name) setErrors(prev => ({ ...prev, name: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     mode="outlined"
                     error={!!errors.name}
                 />
-                {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+                {errors.name && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.name}</Text>}
 
                 <PaperTextInput
                     label="Email"
                     value={email}
                     onChangeText={(text) => { setEmail(text); if (errors.email) setErrors(prev => ({ ...prev, email: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     mode="outlined"
                     error={!!errors.email}
                 />
-                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+                {errors.email && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.email}</Text>}
 
                 <PaperTextInput
                     label="Password"
                     value={password}
                     onChangeText={(text) => { setPassword(text); if (errors.password) setErrors(prev => ({ ...prev, password: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     secureTextEntry={!showPassword}
                     mode="outlined"
                     error={!!errors.password}
@@ -98,13 +99,13 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onNavigateToLog
                         />
                     }
                 />
-                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                {errors.password && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.password}</Text>}
 
                 <PaperTextInput
                     label="Confirm Password"
                     value={confirmPassword}
                     onChangeText={(text) => { setConfirmPassword(text); if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     secureTextEntry={!showConfirmPassword}
                     mode="outlined"
                     error={!!errors.confirmPassword}
@@ -115,80 +116,48 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onNavigateToLog
                         />
                     }
                 />
-                {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+                {errors.confirmPassword && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.confirmPassword}</Text>}
 
                 <PaperTextInput
                     label="Street Address"
                     value={street}
                     onChangeText={(text) => { setStreet(text); if (errors.street) setErrors(prev => ({ ...prev, street: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     mode="outlined"
                     error={!!errors.street}
                 />
-                {errors.street && <Text style={styles.errorText}>{errors.street}</Text>}
+                {errors.street && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.street}</Text>}
 
                 <PaperTextInput
                     label="City"
                     value={city}
                     onChangeText={(text) => { setCity(text); if (errors.city) setErrors(prev => ({ ...prev, city: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     mode="outlined"
                     error={!!errors.city}
                 />
-                {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
+                {errors.city && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.city}</Text>}
 
                 <PaperTextInput
                     label="Postcode"
                     value={postcode}
                     onChangeText={(text) => { setPostcode(text); if (errors.postcode) setErrors(prev => ({ ...prev, postcode: undefined })); }}
-                    style={styles.input}
+                    style={{ marginBottom: spacing.sm }}
                     mode="outlined"
                     error={!!errors.postcode}
                 />
-                {errors.postcode && <Text style={styles.errorText}>{errors.postcode}</Text>}
+                {errors.postcode && <Text className="text-red-500 text-xs mb-sm ml-sm">{errors.postcode}</Text>}
 
-                <Button title="Next" onPress={handleNext} />
+                <View className="mt-md mb-sm">
+                    <Button title="Next" onPress={handleNext} color={colors.primary} />
+                </View>
 
-                <TouchableOpacity onPress={onNavigateToLogin} style={styles.toggleLink}>
-                    <Text style={styles.toggleText}>Already have an account? Login</Text>
+                <TouchableOpacity onPress={onNavigateToLogin} className="mt-lg items-center">
+                    <Text className="text-primary underline">Already have an account? Login</Text>
                 </TouchableOpacity>
             </View>
         </ScrollView>
     );
 };
-
-const styles = StyleSheet.create({
-    scrollContainer: {
-        flexGrow: 1,
-        justifyContent: 'center',
-    },
-    container: {
-        justifyContent: 'center',
-        padding: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    input: {
-        marginBottom: 10,
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 12,
-        marginBottom: 10,
-        marginLeft: 8,
-    },
-    toggleLink: {
-        marginTop: 20,
-        alignItems: 'center',
-    },
-    toggleText: {
-        color: 'blue',
-        textDecorationLine: 'underline',
-    },
-});
 
 export default RegistrationScreen; 

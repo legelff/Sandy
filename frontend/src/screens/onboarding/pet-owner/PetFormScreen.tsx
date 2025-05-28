@@ -3,7 +3,6 @@ import {
     View,
     Text,
     Button,
-    StyleSheet,
     ScrollView,
     Platform,
     Alert,
@@ -15,6 +14,7 @@ import { TextInput as PaperTextInput, Menu, Provider as PaperProvider, MD3LightT
 import Slider from '@react-native-community/slider';
 import * as ImagePicker from 'expo-image-picker';
 import { PlusCircle } from 'lucide-react-native';
+import { colors, spacing } from '../../../theme';
 
 // Interface for form data remains the same
 export interface PetFormData {
@@ -293,14 +293,14 @@ const PetFormScreen = () => {
     const renderImageUploadBox = (photoSlot: 'photo1Url' | 'photo2Url' | 'photo3Url', additionalStyle?: any) => {
         const imageUri = formData[photoSlot];
         return (
-            <TouchableOpacity onPress={() => handleChoosePhoto(photoSlot)} style={[styles.imageUploadBox, additionalStyle]}>
+            <TouchableOpacity
+                className="w-24 h-24 border border-dashed border-gray-400 rounded-md items-center justify-center bg-gray-100 m-1"
+                onPress={() => handleChoosePhoto(photoSlot)}
+            >
                 {imageUri ? (
-                    <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                    <Image source={{ uri: imageUri }} className="w-full h-full rounded-md" />
                 ) : (
-                    <View style={styles.imagePlaceholder}>
-                        <PlusCircle size={40} color="#cccccc" />
-                        <Text style={styles.imagePlaceholderText}>Add Photo</Text>
-                    </View>
+                    <PlusCircle size={32} color={colors.primary} />
                 )}
             </TouchableOpacity>
         );
@@ -308,216 +308,134 @@ const PetFormScreen = () => {
 
     return (
         <PaperProvider theme={MD3LightTheme}>
-            <ScrollView style={styles.screenContainer} contentContainerStyle={styles.scrollViewContent}>
-                <Text style={styles.pageTitle}>{isEditing ? 'Edit Pet' : 'Add New Pet'}</Text>
+            <ScrollView className="bg-background" contentContainerStyle={{ paddingBottom: spacing.lg }}>
+                <View className="p-md mt-8">
+                    <Text className="text-2xl font-bold mb-md text-center text-text-dark">
+                        {isEditing ? 'Edit Pet Details' : 'Tell us about your Pet'}
+                    </Text>
 
-                <PaperTextInput label="Name *" value={formData.name} onChangeText={(t) => handleChange('name', t)} style={styles.input} mode="outlined" />
-
-                <Menu
-                    visible={speciesMenuVisible}
-                    onDismiss={closeSpeciesMenu}
-                    anchor={
-                        <TouchableOpacity onPress={openSpeciesMenu}>
-                            <PaperTextInput
-                                label="Species *"
-                                value={formData.species}
-                                style={styles.input}
-                                editable={false}
-                                right={<PaperTextInput.Icon icon="menu-down" onPress={openSpeciesMenu} />}
-                                mode="outlined"
-                            />
-                        </TouchableOpacity>
-                    }
-                >
-                    <ScrollView style={{ maxHeight: 200 }}>
-                        {COMMON_PET_SPECIES.map((specie) => (
-                            <Menu.Item key={specie} onPress={() => handleSpeciesSelect(specie)} title={specie} />
-                        ))}
-                    </ScrollView>
-                </Menu>
-
-                <Menu
-                    visible={breedMenuVisible}
-                    onDismiss={closeBreedMenu}
-                    anchor={
-                        <TouchableOpacity onPress={openBreedMenu} disabled={!formData.species}>
-                            <PaperTextInput
-                                label="Breed *"
-                                value={formData.breed}
-                                style={styles.input}
-                                editable={false}
-                                disabled={!formData.species}
-                                right={<PaperTextInput.Icon icon="menu-down" onPress={openBreedMenu} />}
-                                mode="outlined"
-                            />
-                        </TouchableOpacity>
-                    }
-                >
-                    <ScrollView style={{ maxHeight: 200 }}>
-                        {availableBreeds.map((breedOption) => (
-                            <Menu.Item key={breedOption} onPress={() => handleBreedSelect(breedOption)} title={breedOption} />
-                        ))}
-                    </ScrollView>
-                </Menu>
-
-                <PaperTextInput
-                    label="Age (years) *"
-                    value={formData.age}
-                    onChangeText={(t) => handleChange('age', t)}
-                    style={styles.input}
-                    mode="outlined"
-                    keyboardType="numeric"
-                />
-                <PaperTextInput
-                    label="Personality"
-                    value={formData.personality}
-                    onChangeText={(t) => handleChange('personality', t)}
-                    style={styles.input}
-                    multiline
-                    numberOfLines={5}
-                    mode="outlined"
-                />
-                <PaperTextInput
-                    label="Favorite Activities & Needs"
-                    value={formData.activitiesAndNeeds}
-                    onChangeText={(t) => handleChange('activitiesAndNeeds', t)}
-                    style={styles.input}
-                    multiline
-                    numberOfLines={6}
-                    mode="outlined"
-                />
-
-                <View style={styles.sliderContainer}>
-                    <Text style={styles.sliderLabel}>Energy Level: {formData.energyLevel}</Text>
-                    <Slider
-                        style={styles.slider}
-                        minimumValue={1}
-                        maximumValue={10}
-                        step={1}
-                        value={formData.energyLevel}
-                        onValueChange={(value) => handleChange('energyLevel', value)}
-                        minimumTrackTintColor="#1FB2A6"
-                        maximumTrackTintColor="#d3d3d3"
-                        thumbTintColor="#1FB2A6"
-                    />
-                </View>
-
-                <View style={styles.sliderContainer}>
-                    <Text style={styles.sliderLabel}>Comfort Level: {formData.comfortLevel}</Text>
-                    <Slider
-                        style={styles.slider}
-                        minimumValue={1}
-                        maximumValue={10}
-                        step={1}
-                        value={formData.comfortLevel}
-                        onValueChange={(value) => handleChange('comfortLevel', value)}
-                        minimumTrackTintColor="#1FB2A6"
-                        maximumTrackTintColor="#d3d3d3"
-                        thumbTintColor="#1FB2A6"
-                    />
-                </View>
-
-                <Text style={styles.photoSectionTitle}>Pet Photos</Text>
-                <View style={styles.imageGridContainer}>
-                    <View style={styles.imageMainColumn}>
+                    <View className="flex-row justify-around mb-md">
                         {renderImageUploadBox('photo1Url')}
-                    </View>
-                    <View style={styles.imageSecondaryColumn}>
-                        {renderImageUploadBox('photo2Url', styles.imageSecondaryBoxTop)}
+                        {renderImageUploadBox('photo2Url')}
                         {renderImageUploadBox('photo3Url')}
                     </View>
-                </View>
 
-                <View style={styles.buttonContainer}>
-                    <Button title="Cancel" onPress={handleCancel} color="#FF3B30" />
-                    <Button title={isEditing ? 'Save Changes' : 'Add Pet'} onPress={handleSubmit} />
+                    <PaperTextInput
+                        label="Pet's Name"
+                        value={formData.name}
+                        onChangeText={(text) => handleChange('name', text)}
+                        style={{ marginBottom: spacing.md }}
+                        mode="outlined"
+                        theme={{ colors: { primary: colors.primary } }}
+                    />
+
+                    <Menu
+                        visible={speciesMenuVisible}
+                        onDismiss={closeSpeciesMenu}
+                        anchor={
+                            <TouchableOpacity onPress={openSpeciesMenu} className="border border-gray-400 p-4 rounded-md bg-white flex-row justify-between items-center">
+                                <Text className={formData.species ? "text-text-dark" : "text-gray-500"}>{formData.species || "Select Pet Species"}</Text>
+                                <Text className="text-text-dark">{'>'}</Text>
+                            </TouchableOpacity>
+                        }>
+                        <ScrollView style={{ maxHeight: 200 }}>
+                            {COMMON_PET_SPECIES.map((item) => (
+                                <Menu.Item key={item} onPress={() => handleSpeciesSelect(item)} title={item} />
+                            ))}
+                        </ScrollView>
+                    </Menu>
+
+                    <Menu
+                        visible={breedMenuVisible && !!formData.species}
+                        onDismiss={closeBreedMenu}
+                        anchor={
+                            <TouchableOpacity onPress={openBreedMenu} className="border border-gray-400 p-4 rounded-md mt-md bg-white flex-row justify-between items-center" disabled={!formData.species}>
+                                <Text className={formData.breed ? "text-text-dark" : "text-gray-500"}>{formData.breed || "Select Pet Breed"}</Text>
+                                <Text className="text-text-dark">{'>'}</Text>
+                            </TouchableOpacity>
+                        }>
+                        <ScrollView style={{ maxHeight: 200 }}>
+                            {availableBreeds.map((item) => (
+                                <Menu.Item key={item} onPress={() => handleBreedSelect(item)} title={item} />
+                            ))}
+                        </ScrollView>
+                    </Menu>
+
+                    <PaperTextInput
+                        label="Age (e.g., 2 years, 6 months)"
+                        value={formData.age}
+                        onChangeText={(text) => handleChange('age', text)}
+                        style={{ marginTop: spacing.md, marginBottom: spacing.md }}
+                        mode="outlined"
+                        theme={{ colors: { primary: colors.primary } }}
+                    />
+
+                    <PaperTextInput
+                        label="Personality (e.g., playful, calm, shy)"
+                        value={formData.personality}
+                        onChangeText={(text) => handleChange('personality', text)}
+                        style={{ marginBottom: spacing.md }}
+                        mode="outlined"
+                        multiline
+                        numberOfLines={3}
+                        theme={{ colors: { primary: colors.primary } }}
+                    />
+
+                    <PaperTextInput
+                        label="Favorite Activities & Special Needs"
+                        value={formData.activitiesAndNeeds}
+                        onChangeText={(text) => handleChange('activitiesAndNeeds', text)}
+                        style={{ marginBottom: spacing.md }}
+                        mode="outlined"
+                        multiline
+                        numberOfLines={4}
+                        theme={{ colors: { primary: colors.primary } }}
+                    />
+
+                    <View className="mb-md">
+                        <Text className="text-base text-text-dark">
+                            Energy Level: {formData.energyLevel}/10
+                        </Text>
+                        <Slider
+                            style={{ width: '100%', height: 40 }}
+                            minimumValue={1}
+                            maximumValue={10}
+                            step={1}
+                            value={formData.energyLevel}
+                            onValueChange={(val) => handleChange('energyLevel', val)}
+                            minimumTrackTintColor={colors.primary}
+                            maximumTrackTintColor="#d3d3d3"
+                            thumbTintColor={colors.primary}
+                        />
+                    </View>
+
+                    <View className="mb-md">
+                        <Text className="text-base text-text-dark">
+                            Comfort Level with Strangers: {formData.comfortLevel}/10
+                        </Text>
+                        <Slider
+                            style={{ width: '100%', height: 40 }}
+                            minimumValue={1}
+                            maximumValue={10}
+                            step={1}
+                            value={formData.comfortLevel}
+                            onValueChange={(val) => handleChange('comfortLevel', val)}
+                            minimumTrackTintColor={colors.primary}
+                            maximumTrackTintColor="#d3d3d3"
+                            thumbTintColor={colors.primary}
+                        />
+                    </View>
+
+                    <View className="mt-md">
+                        <Button title={isEditing ? "Save Changes" : "Add Pet"} onPress={handleSubmit} color={colors.primary} />
+                    </View>
+                    <View className="mt-md">
+                        <Button title="Cancel" onPress={handleCancel} color={colors.primary} />
+                    </View>
                 </View>
             </ScrollView>
         </PaperProvider>
     );
 };
-
-const styles = StyleSheet.create({
-    screenContainer: {
-        flex: 1,
-        backgroundColor: 'white',
-    },
-    scrollViewContent: {
-        padding: 20,
-        paddingBottom: 40,
-    },
-    pageTitle: {
-        fontSize: 26,
-        fontWeight: 'bold',
-        marginBottom: 30,
-        textAlign: 'center',
-    },
-    input: {
-        marginBottom: 20,
-    },
-    sliderContainer: {
-        marginBottom: 20,
-    },
-    sliderLabel: {
-        fontSize: 16,
-        marginBottom: 8,
-        color: '#333',
-    },
-    slider: {
-        width: '100%',
-        height: 40,
-    },
-    photoSectionTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginTop: 0,
-        marginBottom: 15,
-    },
-    imageGridContainer: {
-        flexDirection: 'row',
-        marginBottom: 20,
-        height: 220,
-    },
-    imageMainColumn: {
-        flex: 2,
-        marginRight: 10,
-    },
-    imageSecondaryColumn: {
-        flex: 1,
-        flexDirection: 'column',
-        gap: 10,
-    },
-    imageUploadBox: {
-        backgroundColor: '#f0f0f0',
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden',
-        width: '100%',
-        aspectRatio: 1,
-    },
-    imageSecondaryBoxTop: {
-        marginBottom: 0,
-    },
-    imagePreview: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'cover',
-    },
-    imagePlaceholder: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    imagePlaceholderText: {
-        marginTop: 8,
-        color: '#888',
-        fontSize: 12,
-    },
-    buttonContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginTop: 30,
-    },
-});
 
 export default PetFormScreen; 

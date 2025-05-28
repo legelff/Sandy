@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, Button } from 'react-native';
 import { useRouter } from 'expo-router'; // Or your navigation hook
+import { colors } from '../theme'; // Added import for theme colors
 
 const RoleSelectionScreen = () => {
     const router = useRouter(); // Or useNavigation() depending on your setup
@@ -17,44 +18,19 @@ const RoleSelectionScreen = () => {
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Choose Your Role</Text>
-            <Text style={styles.subtitle}>How will you be using Sandy?</Text>
+        <View className="flex-1 justify-center items-center p-md bg-background">
+            <Text className="text-2xl font-bold mb-sm text-center text-text-dark">Choose Your Role</Text>
+            <Text className="text-base text-gray-500 mb-lg text-center">How will you be using Sandy?</Text>
 
-            <View style={styles.buttonContainer}>
-                <Button title="I'm a Pet Owner" onPress={() => handleSelectRole('Pet Owner')} />
+            <View className="my-sm w-4/5">
+                <Button title="I'm a Pet Owner" onPress={() => handleSelectRole('Pet Owner')} color={colors.primary} />
             </View>
 
-            <View style={styles.buttonContainer}>
-                <Button title="I'm a Pet Sitter" onPress={() => handleSelectRole('Pet Sitter')} />
+            <View className="my-sm w-4/5">
+                <Button title="I'm a Pet Sitter" onPress={() => handleSelectRole('Pet Sitter')} color={colors.primary} />
             </View>
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: 'gray',
-        marginBottom: 32,
-        textAlign: 'center',
-    },
-    buttonContainer: {
-        marginVertical: 10,
-        width: '80%',
-    }
-});
 
 export default RoleSelectionScreen; 
