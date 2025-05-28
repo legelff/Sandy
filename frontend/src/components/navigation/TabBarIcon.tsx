@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, Settings, MessageCircle, User } from 'lucide-react-native';
+import { Home, Search, PawPrint, MessageCircle, User } from 'lucide-react-native';
 import { colors } from '../../theme'; // Corrected import
 
 interface TabBarIconProps {
@@ -25,7 +25,7 @@ const TabBarIcon: React.FC<TabBarIconProps> = ({ routeName, focused, color, size
             IconComponent = Search;
             break;
         case 'Options':
-            IconComponent = Settings;
+            IconComponent = PawPrint;
             break;
         case 'Chats':
             IconComponent = MessageCircle;
