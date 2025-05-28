@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import TabBarIcon from '../../components/navigation/TabBarIcon'; // Adjusted import path
 import { colors } from '../../theme'; // Adjusted import path
 
@@ -9,6 +9,11 @@ import { colors } from '../../theme'; // Adjusted import path
  * @returns {React.ReactElement} The bottom tab navigator.
  */
 const TabsLayout: React.FC = () => {
+    const pathname = usePathname(); // Get current path
+
+    // Determine if the search results screen is active
+    const isSearchResultsActive = pathname === '/(tabs)/search/results';
+
     return (
         <Tabs
             screenOptions={{
@@ -27,12 +32,13 @@ const TabsLayout: React.FC = () => {
                 }}
             />
             <Tabs.Screen
-                name="search" // This will correspond to app/(tabs)/search.tsx
+                name="search" // This now points to the search stack navigator (search/_layout.tsx)
                 options={{
                     title: 'Search',
                     tabBarIcon: ({ focused, color, size }) => (
                         <TabBarIcon routeName="Search" focused={focused} color={color} size={size} />
                     ),
+                    tabBarStyle: { display: isSearchResultsActive ? 'none' : 'flex' }, // Hide tab bar for results screen
                 }}
             />
             <Tabs.Screen

@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet, Platform, TouchableOpacity, Button as Nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, TextInput, RadioButton, Checkbox, Provider as PaperProvider, Card, Title, Paragraph } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { colors } from '../../theme';
+import { colors } from '../../../theme'; // Adjusted import path
 import { CalendarDays, MapPin, Briefcase } from 'lucide-react-native';
 
 // Dummy data for pets - replace with actual data source later
@@ -15,7 +15,8 @@ const USER_PETS = [
 
 const SERVICE_PACKAGES = ['Basic', 'Extended'];
 
-const SearchScreen: React.FC = () => {
+// Renamed from SearchScreen to SearchFormScreen or similar if preferred, keeping SearchScreen for now as it's the index.
+const SearchIndexScreen: React.FC = () => {
     const router = useRouter();
 
     const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -36,16 +37,20 @@ const SearchScreen: React.FC = () => {
     };
 
     const handleStartSearching = () => {
-        console.log('Search Criteria:', {
+        const searchCriteria = {
             selectedPetIds,
             fromDate,
             toDate,
             location: locationOption === 'custom' ? customLocation : locationOption,
             servicePackage,
+        };
+        console.log('Search Criteria:', searchCriteria);
+
+        // Navigate to the search results screen using a more explicit path
+        router.push({
+            pathname: '/(tabs)/search/results', // Using absolute path from app directory
+            params: { criteria: JSON.stringify(searchCriteria) } // Pass criteria as params
         });
-        // Navigate to the second search screen (e.g., search results)
-        // router.push('/(tabs)/search/results'); // Or a similar path
-        alert("Search results screen not implemented yet.")
     };
 
     // TODO: Implement actual date picker modals or inputs
@@ -211,4 +216,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default SearchScreen; 
+export default SearchIndexScreen; // Renamed export 
