@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, Platform, TouchableOpacity, Button as NativeButton } from 'react-native';
+import { View, ScrollView, StyleSheet, Platform, TouchableOpacity, Button as NativeButton, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text, TextInput, RadioButton, Checkbox, Provider as PaperProvider, Card, Title, Paragraph } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -69,114 +69,123 @@ const SearchIndexScreen: React.FC = () => {
 
     return (
         <PaperProvider>
-            <SafeAreaView style={styles.container}>
-                <ScrollView contentContainerStyle={styles.scrollContent}>
-                    <Text style={styles.header}>Find a Sitter</Text>
+            <SafeAreaView style={styles.safeAreaContainer} edges={['bottom', 'left', 'right']}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.keyboardAvoidingContainer}
+                    keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // Adjust offset as needed
+                >
+                    <ScrollView contentContainerStyle={styles.scrollContent}>
+                        <Text style={styles.header}>Find a Sitter</Text>
 
-                    <Card style={styles.card}>
-                        <Card.Content>
-                            <Title style={styles.cardTitle}>Select Your Pet(s)</Title>
-                            {USER_PETS.map(pet => (
-                                <Checkbox.Item
-                                    key={pet.id}
-                                    label={pet.name}
-                                    status={selectedPetIds.includes(pet.id) ? 'checked' : 'unchecked'}
-                                    onPress={() => togglePetSelection(pet.id)}
-                                    color={colors.primary}
-                                    labelStyle={{ color: colors.textDark }}
-                                />
-                            ))}
-                        </Card.Content>
-                    </Card>
+                        <Card style={styles.card}>
+                            <Card.Content>
+                                <Title style={styles.cardTitle}>Select Your Pet(s)</Title>
+                                {USER_PETS.map(pet => (
+                                    <Checkbox.Item
+                                        key={pet.id}
+                                        label={pet.name}
+                                        status={selectedPetIds.includes(pet.id) ? 'checked' : 'unchecked'}
+                                        onPress={() => togglePetSelection(pet.id)}
+                                        color={colors.primary}
+                                        labelStyle={{ color: colors.textDark }}
+                                    />
+                                ))}
+                            </Card.Content>
+                        </Card>
 
-                    <Card style={styles.card}>
-                        <Card.Content>
-                            <Title style={styles.cardTitle} className='mb-md'>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <CalendarDays color={colors.primary} style={{ marginRight: 8 }} />
-                                    <Text style={styles.cardTitleText}>Dates</Text>
-                                </View>
-                            </Title>
-                            <TextInput
-                                label="From Date (YYYY-MM-DD)"
-                                value={fromDate}
-                                onChangeText={setFromDate}
-                                style={styles.input}
-                                mode="outlined"
-                                keyboardType="numbers-and-punctuation"
-                                textColor={colors.textDark}
-                            />
-                            <TextInput
-                                label="To Date (YYYY-MM-DD)"
-                                value={toDate}
-                                onChangeText={setToDate}
-                                style={styles.input}
-                                mode="outlined"
-                                keyboardType="numbers-and-punctuation"
-                                textColor={colors.textDark}
-                            />
-                        </Card.Content>
-                    </Card>
-
-                    <Card style={styles.card}>
-                        <Card.Content>
-                            <Title style={styles.cardTitle} className='mb-md'>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <MapPin color={colors.primary} style={{ marginRight: 8 }} />
-                                    <Text style={styles.cardTitleText}>Location</Text>
-                                </View>
-                            </Title>
-                            <RadioButton.Group onValueChange={newValue => setLocationOption(newValue as any)} value={locationOption}>
-                                <RadioButton.Item label="My Home" value="home" color={colors.primary} labelStyle={{ color: colors.textDark }} />
-                                <RadioButton.Item label="Current Location" value="current" color={colors.primary} labelStyle={{ color: colors.textDark }} />
-                                <RadioButton.Item label="Custom" value="custom" color={colors.primary} labelStyle={{ color: colors.textDark }} />
-                            </RadioButton.Group>
-                            {locationOption === 'custom' && (
+                        <Card style={styles.card}>
+                            <Card.Content>
+                                <Title style={styles.cardTitle} className='mb-md'>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <CalendarDays color={colors.primary} style={{ marginRight: 8 }} />
+                                        <Text style={styles.cardTitleText}>Dates</Text>
+                                    </View>
+                                </Title>
                                 <TextInput
-                                    label="Enter Custom Address"
-                                    value={customLocation}
-                                    onChangeText={setCustomLocation}
+                                    label="From Date (YYYY-MM-DD)"
+                                    value={fromDate}
+                                    onChangeText={setFromDate}
                                     style={styles.input}
                                     mode="outlined"
+                                    keyboardType="numbers-and-punctuation"
                                     textColor={colors.textDark}
                                 />
-                            )}
-                        </Card.Content>
-                    </Card>
+                                <TextInput
+                                    label="To Date (YYYY-MM-DD)"
+                                    value={toDate}
+                                    onChangeText={setToDate}
+                                    style={styles.input}
+                                    mode="outlined"
+                                    keyboardType="numbers-and-punctuation"
+                                    textColor={colors.textDark}
+                                />
+                            </Card.Content>
+                        </Card>
 
-                    <Card style={styles.card}>
-                        <Card.Content>
-                            <Title style={styles.cardTitle} className='mb-md'>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <Briefcase color={colors.primary} style={{ marginRight: 8 }} />
-                                    <Text style={styles.cardTitleText}>Service Package</Text>
-                                </View>
-                            </Title>
-                            <RadioButton.Group onValueChange={newValue => setServicePackage(newValue)} value={servicePackage}>
-                                {SERVICE_PACKAGES.map(pkg => (
-                                    <RadioButton.Item key={pkg} label={pkg} value={pkg} color={colors.primary} labelStyle={{ color: colors.textDark }} />
-                                ))}
-                            </RadioButton.Group>
-                        </Card.Content>
-                    </Card>
+                        <Card style={styles.card}>
+                            <Card.Content>
+                                <Title style={styles.cardTitle} className='mb-md'>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <MapPin color={colors.primary} style={{ marginRight: 8 }} />
+                                        <Text style={styles.cardTitleText}>Location</Text>
+                                    </View>
+                                </Title>
+                                <RadioButton.Group onValueChange={newValue => setLocationOption(newValue as any)} value={locationOption}>
+                                    <RadioButton.Item label="My Home" value="home" color={colors.primary} labelStyle={{ color: colors.textDark }} />
+                                    <RadioButton.Item label="Current Location" value="current" color={colors.primary} labelStyle={{ color: colors.textDark }} />
+                                    <RadioButton.Item label="Custom" value="custom" color={colors.primary} labelStyle={{ color: colors.textDark }} />
+                                </RadioButton.Group>
+                                {locationOption === 'custom' && (
+                                    <TextInput
+                                        label="Enter Custom Address"
+                                        value={customLocation}
+                                        onChangeText={setCustomLocation}
+                                        style={styles.input}
+                                        mode="outlined"
+                                        textColor={colors.textDark}
+                                    />
+                                )}
+                            </Card.Content>
+                        </Card>
 
-                    <View style={styles.searchButtonContainer}>
-                        <NativeButton
-                            title="Start Searching"
-                            onPress={handleStartSearching}
-                            color={colors.primary}
-                        />
-                    </View>
-                </ScrollView>
+                        <Card style={styles.card}>
+                            <Card.Content>
+                                <Title style={styles.cardTitle} className='mb-md'>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Briefcase color={colors.primary} style={{ marginRight: 8 }} />
+                                        <Text style={styles.cardTitleText}>Service Package</Text>
+                                    </View>
+                                </Title>
+                                <RadioButton.Group onValueChange={newValue => setServicePackage(newValue)} value={servicePackage}>
+                                    {SERVICE_PACKAGES.map(pkg => (
+                                        <RadioButton.Item key={pkg} label={pkg} value={pkg} color={colors.primary} labelStyle={{ color: colors.textDark }} />
+                                    ))}
+                                </RadioButton.Group>
+                            </Card.Content>
+                        </Card>
+
+                        <View style={styles.searchButtonContainer}>
+                            <NativeButton
+                                title="Start Searching"
+                                onPress={handleStartSearching}
+                                color={colors.primary}
+                            />
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </PaperProvider>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
+    safeAreaContainer: {
         flex: 1,
         backgroundColor: colors.background,
+    },
+    keyboardAvoidingContainer: {
+        flex: 1,
     },
     scrollContent: {
         padding: 16,
@@ -216,4 +225,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default SearchIndexScreen; // Renamed export 
+export default SearchIndexScreen; 

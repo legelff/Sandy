@@ -3,8 +3,8 @@ import { View, StyleSheet, FlatList, Text as RNText } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import ChatItemCard, { ChatItem } from '../../components/chats/ChatItemCard';
-import { colors } from '../../theme';
+import ChatItemCard, { ChatItem } from '../../../components/chats/ChatItemCard'; // Adjusted path
+import { colors } from '../../../theme'; // Adjusted path
 
 // Placeholder data for chats
 const DUMMY_CHATS: ChatItem[] = [
@@ -25,19 +25,16 @@ const DUMMY_CHATS: ChatItem[] = [
     },
 ];
 
-const ChatsScreen: React.FC = () => {
+const ChatsListScreen: React.FC = () => { // Renamed to ChatsListScreen
     const router = useRouter();
     const [chats, setChats] = useState<ChatItem[]>(DUMMY_CHATS);
 
-    const handleNavigateToChat = (chatId: string, sitterName: string) => {
-        // Navigate to an individual chat screen, passing chatId and sitterName
-        // This screen (e.g., /chats/[chatId].tsx) would need to be created.
-        // router.push(`/chats/${chatId}?sitterName=${encodeURIComponent(sitterName)}`);
+    const handleNavigateToChat = (chatId: string, sitterName: string, petName?: string) => {
         router.push({
-            pathname: '/(tabs)/chats/conversation', // Placeholder for actual chat screen route
-            params: { chatId, sitterName }
+            pathname: '/(tabs)/chats/chat', // Navigate to the new chat screen
+            params: { chatId, sitterName, petName }
         });
-        console.log(`Navigating to chat with ${sitterName} (ID: ${chatId})`);
+        console.log(`Navigating to chat with ${sitterName} (ID: ${chatId}), Pet: ${petName}`);
     };
 
     return (
@@ -53,7 +50,8 @@ const ChatsScreen: React.FC = () => {
                 <FlatList
                     data={chats}
                     renderItem={({ item }) => (
-                        <ChatItemCard chatItem={item} onPress={handleNavigateToChat} />
+                        // Pass petName to handler
+                        <ChatItemCard chatItem={item} onPress={(id, sName) => handleNavigateToChat(id, sName, item.petName)} />
                     )}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContentContainer}
@@ -95,7 +93,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     listContentContainer: {
-        paddingVertical: 16, // Add some vertical padding
+        paddingVertical: 16,
         paddingHorizontal: 16,
     },
     emptyContainer: {
@@ -118,4 +116,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default ChatsScreen; 
+export default ChatsListScreen; // Renamed export 

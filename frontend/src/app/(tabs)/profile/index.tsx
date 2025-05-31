@@ -3,8 +3,9 @@ import { View, Text, StyleSheet, ScrollView, Image, FlatList, TouchableOpacity }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Title, Paragraph, Divider } from 'react-native-paper';
 import { UserCircle, MapPin, Mail, Edit3, PlusCircle } from 'lucide-react-native';
-import PetListItem, { PetProfileItem } from '../../components/profile/PetListItem';
-import { colors } from '../../theme';
+import PetListItem, { PetProfileItem } from '../../../components/profile/PetListItem';
+import { colors } from '../../../theme';
+import { useRouter } from 'expo-router';
 
 // Placeholder data for user
 const DUMMY_USER = {
@@ -45,17 +46,21 @@ const DUMMY_PETS: PetProfileItem[] = [
 ];
 
 const ProfileScreen: React.FC = () => {
+    const router = useRouter();
     const [user, setUser] = useState(DUMMY_USER);
     const [pets, setPets] = useState<PetProfileItem[]>(DUMMY_PETS);
 
     const handleEditProfile = () => {
-        console.log('Edit profile clicked');
+        // console.log('Edit profile clicked');
         // Navigate to edit profile screen or open modal
+        router.push({
+            pathname: '/(tabs)/profile/edit-profile',
+            params: { userData: JSON.stringify(user) }, // Pass current user data
+        });
     };
 
     const handleAddPet = () => {
-        console.log('Add new pet clicked');
-        // Navigate to add pet screen or open modal
+        router.push('/(tabs)/profile/add-pet');
     };
 
     const handleEditPet = (petId: string) => {

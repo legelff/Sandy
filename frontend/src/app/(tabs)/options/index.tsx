@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, FlatList, Text as RNText } from 'react-native'; // Using RNText for the empty list message
+import { View, StyleSheet, FlatList, Text as RNText, TouchableOpacity } from 'react-native'; // Added TouchableOpacity
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
-import LikedSitterCard, { LikedSitter } from '../../components/options/LikedSitterCard';
-import { colors } from '../../theme';
+import LikedSitterCard, { LikedSitter } from '../../../components/options/LikedSitterCard'; // Adjusted path
+import { colors } from '../../../theme'; // Adjusted path
+import { useRouter } from 'expo-router'; // Added useRouter
 
 // Placeholder data for liked sitters
 const DUMMY_LIKED_SITTERS: LikedSitter[] = [
@@ -40,12 +41,19 @@ const DUMMY_LIKED_SITTERS: LikedSitter[] = [
 ];
 
 const OptionsScreen: React.FC = () => {
+    const router = useRouter(); // Initialize router
     const [likedSitters, setLikedSitters] = useState<LikedSitter[]>(DUMMY_LIKED_SITTERS);
 
     const handleDeleteSitter = (idToDelete: string) => {
         setLikedSitters(prevSitters => prevSitters.filter(sitter => sitter.id !== idToDelete));
-        // TODO: In a real app, also call an API to remove this from the backend.
         console.log('Deleted sitter option:', idToDelete);
+    };
+
+    const handlePressSitterCard = (sitter: LikedSitter) => {
+        router.push({
+            pathname: '/(tabs)/options/details',
+            params: { sitterData: JSON.stringify(sitter) },
+        });
     };
 
     return (
@@ -61,7 +69,9 @@ const OptionsScreen: React.FC = () => {
                 <FlatList
                     data={likedSitters}
                     renderItem={({ item }) => (
-                        <LikedSitterCard sitterOption={item} onDelete={handleDeleteSitter} />
+                        <TouchableOpacity onPress={() => handlePressSitterCard(item)}>
+                            <LikedSitterCard sitterOption={item} onDelete={handleDeleteSitter} />
+                        </TouchableOpacity>
                     )}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContentContainer}
@@ -86,7 +96,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingTop: 20,
         paddingBottom: 16,
-        backgroundColor: colors.background, // Ensure header bg matches screen, or make it distinct
+        backgroundColor: colors.background,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
@@ -109,7 +119,7 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 50, // Adjust as needed
+        marginTop: 50,
     },
     emptyText: {
         fontSize: 18,
