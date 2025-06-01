@@ -181,6 +181,7 @@ const SearchIndexScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
     safeAreaContainer: {
+        paddingTop: 32,
         flex: 1,
         backgroundColor: colors.background,
     },

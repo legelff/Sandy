@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Provider as PaperProvider, Text, IconButton, Button as PaperButton } from 'react-native-paper';
+import { Provider as PaperProvider, Text, IconButton, Button as PaperButton, Card, Chip, Title } from 'react-native-paper';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { colors } from '../../../theme';
-import { Camera as CameraIcon, Send, Briefcase } from 'lucide-react-native';
+import { Camera as CameraIcon, Send, Briefcase, CheckCircle, XCircle } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 interface Message {
@@ -13,23 +13,44 @@ interface Message {
     imageUri?: string;
     sender: 'user' | 'owner';
     timestamp: Date;
+    bookingDetails?: BookingConfirmationDetails;
+    messageType?: 'text' | 'image' | 'booking_confirmation';
+}
+
+interface BookingConfirmationDetails {
+    chatId: string;
+    ownerName: string;
+    petNames: string[];
+    fromDate: string;
+    toDate: string;
+    location: string;
+    servicePackage: string;
+    totalPrice: number;
+    status: 'pending' | 'accepted' | 'declined';
 }
 
 // Dummy messages for a given chat (Pet Sitter with Pet Owner)
 const DUMMY_MESSAGES: Message[] = [
-    { id: 'm1', text: 'Hello Alice! Thanks for accepting my request for Buddy.', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 5) },
+    { id: 'm1', text: 'Hello Alice! Thanks for accepting my request for Buddy.', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 5), messageType: 'text' },
     {
-        id: 'm2', text: "Hi! You're welcome.Looking forward to meeting Buddy!", sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 4)
+        id: 'm2', text: "Hi! You're welcome.Looking forward to meeting Buddy!", sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 4), messageType: 'text'
     },
-    { id: 'm3', text: 'Just wanted to confirm the drop-off time.', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 3) },
-    { id: 'm4', text: 'Sounds good, see you then!', sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 2) },
+    { id: 'm3', text: 'Just wanted to confirm the drop-off time.', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 3), messageType: 'text' },
+    { id: 'm4', text: 'Sounds good, see you then!', sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 2), messageType: 'text' },
 ];
 
 const PetSitterChatScreen: React.FC = () => {
     const router = useRouter();
     const navigation = useNavigation();
     const params = useLocalSearchParams();
-    const { chatId, sitterName: ownerName, petName } = params as { chatId: string; sitterName: string; petName?: string };
+    const { chatId, sitterName: ownerNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
+        chatId: string;
+        sitterName: string;
+        petName?: string;
+        bookingConfirmation?: string;
+    };
+
+    const ownerName = ownerNameFromNav || "Pet Owner";
 
     const [messages, setMessages] = useState<Message[]>(DUMMY_MESSAGES);
     const [inputText, setInputText] = useState<string>('');
@@ -43,6 +64,24 @@ const PetSitterChatScreen: React.FC = () => {
         });
     }, [navigation, ownerName, petName]);
 
+    useEffect(() => {
+        if (bookingConfirmationString && typeof bookingConfirmationString === 'string') {
+            try {
+                const bookingDetails: BookingConfirmationDetails = JSON.parse(bookingConfirmationString);
+                const bookingMessage: Message = {
+                    id: `booking-${Date.now()}`,
+                    sender: 'user',
+                    timestamp: new Date(),
+                    bookingDetails: bookingDetails,
+                    messageType: 'booking_confirmation',
+                };
+                setMessages(prevMessages => [bookingMessage, ...prevMessages]);
+            } catch (error) {
+                console.error("Failed to parse booking confirmation:", error);
+            }
+        }
+    }, [bookingConfirmationString]);
+
     const handleSendMessage = () => {
         if (inputText.trim().length === 0) return;
         const newMessage: Message = {
@@ -50,6 +89,7 @@ const PetSitterChatScreen: React.FC = () => {
             text: inputText.trim(),
             sender: 'user',
             timestamp: new Date(),
+            messageType: 'text',
         };
         setMessages(prevMessages => [newMessage, ...prevMessages]);
         setInputText('');
@@ -61,13 +101,22 @@ const PetSitterChatScreen: React.FC = () => {
             imageUri,
             sender: 'user',
             timestamp: new Date(),
+            messageType: 'image',
         };
         setMessages(prevMessages => [newMessage, ...prevMessages]);
         setShowCamera(false);
     };
 
     const handleBook = () => {
-        console.log(`Viewing details for chat ID: ${chatId} with ${ownerName}`);
+        const petNamesArray = petName ? [petName] : [];
+        router.push({
+            pathname: '/(petSitterTabs)/chats/bookingDetails',
+            params: {
+                chatId: chatId,
+                ownerName: ownerName,
+                petNames: JSON.stringify(petNamesArray)
+            },
+        });
     };
 
     const handleOpenCamera = async () => {
@@ -96,11 +145,82 @@ const PetSitterChatScreen: React.FC = () => {
         }
     };
 
+    const handleBookingResponse = (messageId: string, response: 'accepted' | 'declined') => {
+        setMessages(prevMessages =>
+            prevMessages.map(msg => {
+                if (msg.id === messageId && msg.bookingDetails && msg.sender === 'owner') {
+                    return {
+                        ...msg,
+                        bookingDetails: {
+                            ...msg.bookingDetails,
+                            status: response,
+                        },
+                    };
+                }
+                return msg;
+            })
+        );
+        const responseText = `Booking ${response} by you (sitter).`;
+        const responseMessage: Message = {
+            id: `resp-${Date.now()}`,
+            text: responseText,
+            sender: 'user',
+            timestamp: new Date(),
+            messageType: 'text',
+        };
+        setMessages(prevMessages => [responseMessage, ...prevMessages]);
+    };
+
     const renderMessage = ({ item }: { item: Message }) => {
+        const isUser = item.sender === 'user';
+
+        if (item.messageType === 'booking_confirmation' && item.bookingDetails) {
+            const details = item.bookingDetails;
+            return (
+                <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.sitterMessage, styles.bookingCardContainer]}>
+                    <Card style={styles.bookingCard}>
+                        <Card.Content>
+                            <Title style={styles.bookingTitle}>Booking Proposal</Title>
+                            <Text style={styles.bookingText}>For: {details.ownerName}</Text>
+                            <View style={styles.petChipsContainer_Chat}>
+                                {details.petNames.map(name => (
+                                    <Chip key={name} icon="paw" style={styles.petChip_Chat} textStyle={styles.petChipText_Chat}>{name}</Chip>
+                                ))}
+                            </View>
+                            <Text style={styles.bookingText}>Dates: {details.fromDate} to {details.toDate}</Text>
+                            <Text style={styles.bookingText}>Location: {details.location === 'owner_home' ? "Owner\'s Home" : details.location === 'sitter_home' ? "Sitter\'s Home" : details.location}</Text>
+                            <Text style={styles.bookingText}>Package: {details.servicePackage}</Text>
+                            <Text style={styles.bookingPrice}>Total: ${details.totalPrice.toFixed(2)}</Text>
+
+                            {details.status === 'pending' && item.sender === 'owner' && (
+                                <View style={styles.bookingActions}>
+                                    <PaperButton mode="contained" onPress={() => handleBookingResponse(item.id, 'accepted')} style={styles.acceptButton} labelStyle={styles.buttonLabel}>
+                                        <CheckCircle size={16} color={colors.white} /> Accept
+                                    </PaperButton>
+                                    <PaperButton mode="outlined" onPress={() => handleBookingResponse(item.id, 'declined')} style={styles.declineButton} labelStyle={styles.buttonLabelDark}>
+                                        <XCircle size={16} color={colors.textDark} /> Decline
+                                    </PaperButton>
+                                </View>
+                            )}
+                            {details.status === 'pending' && item.sender === 'user' && (
+                                <Text style={styles.pendingOwnerActionText}>Waiting for owner to respond...</Text>
+                            )}
+                            {details.status === 'accepted' && (
+                                <Text style={styles.statusTextAccepted}>Booking Accepted!</Text>
+                            )}
+                            {details.status === 'declined' && (
+                                <Text style={styles.statusTextDeclined}>Booking Declined.</Text>
+                            )}
+                        </Card.Content>
+                    </Card>
+                </View>
+            );
+        }
+
         return (
-            <View style={[styles.messageBubble, item.sender === 'user' ? styles.userMessage : styles.sitterMessage]}>
+            <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.sitterMessage]}>
                 {item.text ? (
-                    <Text style={[styles.messageText, item.sender === 'user' ? styles.userMessageText : styles.sitterMessageText]}>
+                    <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.sitterMessageText]}>
                         {item.text}
                     </Text>
                 ) : null}
@@ -134,7 +254,7 @@ const PetSitterChatScreen: React.FC = () => {
                         <View style={styles.cameraControls}>
                             <PaperButton onPress={() => setShowCamera(false)} mode="outlined" style={styles.cameraButton} labelStyle={{ color: colors.white }}>Cancel</PaperButton>
                             <IconButton icon="camera" size={36} onPress={handleTakePicture} iconColor={colors.primary} style={styles.captureButton} />
-                            <View style={{ width: 100 }} />{/* Spacer */}
+                            <View style={{ width: 100 }} />
                         </View>
                     </View>
                 </Modal>
@@ -212,12 +332,12 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         maxWidth: '80%',
     },
-    userMessage: { // This is the Pet Sitter's message
+    userMessage: {
         backgroundColor: colors.primary,
         alignSelf: 'flex-end',
         borderBottomRightRadius: 4,
     },
-    sitterMessage: { // This is the Pet Owner's message
+    sitterMessage: {
         backgroundColor: colors.white,
         alignSelf: 'flex-start',
         borderBottomLeftRadius: 4,
@@ -227,10 +347,10 @@ const styles = StyleSheet.create({
     messageText: {
         fontSize: 16,
     },
-    userMessageText: { // Pet Sitter's text
+    userMessageText: {
         color: colors.textLight,
     },
-    sitterMessageText: { // Pet Owner's text
+    sitterMessageText: {
         color: colors.textDark,
     },
     chatImage: {
@@ -287,6 +407,97 @@ const styles = StyleSheet.create({
     },
     captureButton: {
         backgroundColor: colors.white,
+    },
+    bookingCardContainer: {
+        paddingVertical: 0,
+        paddingHorizontal: 0,
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+    },
+    bookingCard: {
+        width: '100%',
+        elevation: 3,
+        backgroundColor: colors.white,
+    },
+    userMessagebookingCard: {
+    },
+    sitterMessagebookingCard: {
+    },
+    bookingTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: 8,
+    },
+    bookingText: {
+        fontSize: 14,
+        color: colors.textDark,
+        marginBottom: 4,
+    },
+    petChipsContainer_Chat: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginVertical: 5,
+    },
+    petChip_Chat: {
+        marginRight: 5,
+        marginBottom: 5,
+        backgroundColor: colors.primary,
+    },
+    petChipText_Chat: {
+        color: colors.white,
+        fontSize: 12,
+    },
+    bookingPrice: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginTop: 8,
+        marginBottom: 12,
+    },
+    bookingActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginTop: 15,
+    },
+    acceptButton: {
+        backgroundColor: colors.primary,
+        flex: 1,
+        marginRight: 5,
+    },
+    declineButton: {
+        borderColor: colors.textDark,
+        flex: 1,
+        marginLeft: 5,
+    },
+    buttonLabel: {
+        color: colors.white,
+        fontSize: 14,
+    },
+    buttonLabelDark: {
+        color: colors.textDark,
+        fontSize: 14,
+    },
+    statusTextAccepted: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.primary,
+        textAlign: 'center',
+        marginTop: 10,
+    },
+    statusTextDeclined: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.textDark,
+        textAlign: 'center',
+        marginTop: 10,
+    },
+    pendingOwnerActionText: {
+        fontSize: 14,
+        fontStyle: 'italic',
+        color: colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 10,
     }
 });
 
