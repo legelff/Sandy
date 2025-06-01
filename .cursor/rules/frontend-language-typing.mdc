@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+TypeScript is mandatory. Strictly type all props, state, and functions.
+Avoid any. Use specific types or unknown as a last resort.
+Type Locations:
+Global Types: src/types/
+Navigation Types: src/navigation/navigation.types.ts
+
+Component Props: Co-locate with the component or import clearly. Define component props using type or interface, e.g., type MyComponentProps = { ... };.
