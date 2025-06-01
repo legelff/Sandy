@@ -1,20 +1,74 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, FlatList, Text as RNText } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../../theme'; // Adjusted import path
+import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
+import { useRouter } from 'expo-router';
+import ChatItemCard, { ChatItem } from '../../../components/chats/ChatItemCard';
+import { colors } from '../../../theme';
+
+// Placeholder data for chats (Pet Sitter perspective)
+const DUMMY_CHATS: ChatItem[] = [
+    {
+        id: 'chat1_owner',
+        // For Pet Sitter, sitterName would be the Pet Owner's name
+        sitterName: 'Alice Wonderland (Owner)',
+        petName: 'Buddy',
+    },
+    {
+        id: 'chat2_owner',
+        sitterName: 'Bob The Builder (Owner)',
+        petName: 'Lucy',
+    },
+    {
+        id: 'chat3_owner',
+        sitterName: 'Diana Prince (Owner)',
+        petName: 'Charlie',
+    },
+];
 
 /**
  * PetSitterChatsScreen is the main chats screen for pet sitters.
  */
 const PetSitterChatsScreen: React.FC = () => {
+    const router = useRouter();
+    const [chats, setChats] = useState<ChatItem[]>(DUMMY_CHATS);
+
+    // Renamed sitterName to otherUserName for clarity, as it's the Pet Owner here
+    const handleNavigateToChat = (chatId: string, otherUserName: string, petName?: string) => {
+        router.push({
+            pathname: '/(petSitterTabs)/chats/chat', // Updated path
+            // Pass otherUserName as 'sitterName' to keep ChatScreen prop consistent, or update ChatScreen
+            params: { chatId, sitterName: otherUserName, petName }
+        });
+        console.log(`Navigating to chat with ${otherUserName} (ID: ${chatId}), Pet: ${petName}`);
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                <Text style={styles.header}>Chats (Pet Sitter)</Text>
-                <Text style={styles.placeholderText}>Chat functionality for pet sitters.</Text>
-                {/* TODO: Implement Pet Sitter chat UI and logic */}
-            </View>
-        </SafeAreaView>
+        <PaperProvider>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.headerContainer}>
+                    <Title style={styles.headerTitle}>Your Conversations</Title>
+                    <Text style={styles.headerSubtitle}>
+                        Continue your chats with pet owners.
+                    </Text>
+                </View>
+
+                <FlatList
+                    data={chats}
+                    renderItem={({ item }) => (
+                        <ChatItemCard chatItem={item} onPress={(id, name) => handleNavigateToChat(id, name, item.petName)} />
+                    )}
+                    keyExtractor={(item) => item.id}
+                    contentContainerStyle={styles.listContentContainer}
+                    ListEmptyComponent={() => (
+                        <View style={styles.emptyContainer}>
+                            <RNText style={styles.emptyText}>No active chats yet.</RNText>
+                            <RNText style={styles.emptySubText}>Accepted requests will appear here.</RNText>
+                        </View>
+                    )}
+                />
+            </SafeAreaView>
+        </PaperProvider>
     );
 };
 
@@ -23,23 +77,47 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background,
     },
-    content: {
+    headerContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 16,
+        backgroundColor: colors.background,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    headerTitle: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        color: colors.primary,
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    headerSubtitle: {
+        fontSize: 15,
+        color: colors.textDark,
+        textAlign: 'center',
+    },
+    listContentContainer: {
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+    },
+    emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        marginTop: 50,
     },
-    header: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 24,
-        textAlign: 'center',
-    },
-    placeholderText: {
+    emptyText: {
         fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.textDark,
+        marginBottom: 8,
+    },
+    emptySubText: {
+        fontSize: 14,
         color: colors.textDark,
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
 });
 

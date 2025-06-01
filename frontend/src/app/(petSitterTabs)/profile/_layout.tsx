@@ -1,16 +1,28 @@
 import { Stack } from 'expo-router';
-import React from 'react';
+import { Text } from 'react-native';
+import { colors } from '../../../theme';
 
 /**
  * PetSitterProfileLayout defines the layout for the profile stack navigator for pet sitters.
  */
-const PetSitterProfileLayout: React.FC = () => {
+export default function PetSitterProfileStackLayout() {
     return (
         <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            {/* Define other screens in the profile stack if needed */}
+            <Stack.Screen
+                name="index"
+                options={{
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
+                name="edit-profile"
+                options={{
+                    headerTitle: () => <Text style={{ color: colors.textDark, fontSize: 17, fontWeight: '600' }}>Edit Profile</Text>,
+                    headerTintColor: colors.primary,
+                    headerStyle: { backgroundColor: colors.background },
+                }}
+            />
+            {/* No "add-pet" screen for pet sitters */}
         </Stack>
     );
-};
-
-export default PetSitterProfileLayout; 
+} 
