@@ -12,8 +12,8 @@ const RoleSelectionScreen = () => {
             router.push('/onboarding/pet-owner/subscription');
         } else if (role === 'Pet Sitter') {
             // Placeholder for Pet Sitter onboarding
-            // router.push('/onboarding/pet-sitter/subscription');
-            console.log('Pet Sitter onboarding to be implemented');
+            router.push('/onboarding/pet-sitter/subscription');
+            // console.log('Pet Sitter onboarding to be implemented');
         }
     };
 
