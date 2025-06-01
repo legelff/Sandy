@@ -26,11 +26,11 @@ const PetSitterProfileScreen = () => {
         }
         console.log('Pet Sitter Profile Details:', { personality, motivation, photos, supportedPets });
         // Navigate to the Sitter Dashboard
-        router.push('/dashboard/sitter'); // Final step for this onboarding flow
+        router.push('/(petSitterTabs)/'); // Final step for this onboarding flow
     };
 
     const handlePrevious = () => {
-        router.push('/onboarding/pet-sitter/experience');
+        router.push('/onboarding/pet-sitter/details');
     };
 
     const toggleSupportedPet = (petType: 'cats' | 'dogs') => {
