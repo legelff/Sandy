@@ -61,7 +61,7 @@ const PetSitterProfileScreen = () => {
             } else {
                 return 2;
             }
-            return undefined; // Or a default/error value if appropriate
+            // return undefined; // Or a default/error value if appropriate
         };
 
         const requestBody = {
