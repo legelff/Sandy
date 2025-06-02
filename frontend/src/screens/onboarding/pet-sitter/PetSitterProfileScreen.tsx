@@ -56,8 +56,11 @@ const PetSitterProfileScreen = () => {
         const getSubscriptionId = (plan?: string): number | undefined => {
             if (!plan) return undefined;
             const lowerPlan = plan.toLowerCase();
-            if (lowerPlan.includes('basic')) return 1;
-            if (lowerPlan.includes('premium')) return 2;
+            if (lowerPlan.includes('basic')) {
+                return 1;
+            } else {
+                return 2;
+            }
             return undefined; // Or a default/error value if appropriate
         };
 
