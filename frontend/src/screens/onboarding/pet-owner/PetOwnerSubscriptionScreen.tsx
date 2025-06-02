@@ -3,6 +3,7 @@ import { View, Text, Button, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CheckCircle2, XCircle, PawPrint } from 'lucide-react-native';
 import { colors, spacing } from '../../../theme';
+import { useOnboardingStore } from '../../../store/onboardingStore';
 
 // Define feature names directly for clarity in the options
 const FEATURE_NAME = {
@@ -63,6 +64,7 @@ const SUBSCRIPTION_OPTIONS = [
 const PetOwnerSubscriptionScreen = () => {
     const router = useRouter();
     const [selectedSubscription, setSelectedSubscription] = useState<string | null>(null);
+    const { setSubscriptionData } = useOnboardingStore();
 
     const handleSelectSubscription = (subscriptionId: string) => {
         setSelectedSubscription(subscriptionId);
@@ -70,7 +72,10 @@ const PetOwnerSubscriptionScreen = () => {
 
     const handleNext = () => {
         if (selectedSubscription) {
-            console.log('Selected Pet Owner Subscription:', selectedSubscription);
+            setSubscriptionData({ plan: selectedSubscription, hasSubscribed: true });
+            console.log('Selected Pet Owner Subscription and saved to store:', selectedSubscription);
+
+            // Navigate to the add pets screen
             router.push('/onboarding/pet-owner/add-pets');
         } else {
             console.log('Please select a subscription.');

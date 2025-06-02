@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { TextInput as PaperTextInput } from 'react-native-paper';
 import { colors, spacing } from '../theme';
+import { useOnboardingStore } from '../store/onboardingStore';
 
 interface RegistrationScreenProps {
     onNavigateToLogin: () => void;
@@ -14,6 +15,7 @@ const emailRegex = /^\S+@\S+\.\S+$/;
 
 const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onNavigateToLogin }) => {
     const router = useRouter();
+    const { setRegistrationData } = useOnboardingStore();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -50,7 +52,9 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onNavigateToLog
 
     const handleNext = () => {
         if (validate()) {
-            console.log('Form is valid:', { name, email, password, street, city, postcode });
+            const registrationDetails = { name, email, password, street, city, postcode };
+            setRegistrationData(registrationDetails);
+            console.log('Form is valid, data saved to store:', registrationDetails);
             router.push('/role-selection');
         } else {
             console.log('Form is invalid:', errors);

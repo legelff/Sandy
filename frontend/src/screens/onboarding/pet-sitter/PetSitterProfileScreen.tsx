@@ -1,36 +1,67 @@
 import React, { useState } from 'react';
-import { View, Text, Button, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, Button, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { PawPrint, UserCircle, Camera, CheckSquare, Square } from 'lucide-react-native'; // Added icons
 import { colors, spacing } from '../../../theme';
+import { useOnboardingStore } from '../../../store/onboardingStore'; // Import the store
 
 const PetSitterProfileScreen = () => {
     const router = useRouter();
+    const { setPetSitterOnboardingData, getAllData } = useOnboardingStore(); // Get store action and getAllData
 
-    const [personality, setPersonality] = useState('');
+    const [bio, setBio] = useState('');
     const [motivation, setMotivation] = useState('');
     const [photos, setPhotos] = useState<string[]>([]); // Placeholder for photo URIs
     const [supportedPets, setSupportedPets] = useState<{ cats: boolean; dogs: boolean }>({ cats: false, dogs: false });
 
     const handleNext = () => {
-        // Basic validation
-        if (!personality || !motivation) {
-            console.log('Please fill all required fields (personality, motivation).');
-            // Show alert to user
+        if (!bio || !motivation) {
+            Alert.alert('Missing Information', 'Please fill in your personality and motivation.');
             return;
         }
         if (photos.length < 3) {
-            console.log('Please upload 3 photos.');
-            // Show alert to user
+            Alert.alert('Photos Required', 'Please upload at least 3 photos.');
             return;
         }
-        console.log('Pet Sitter Profile Details:', { personality, motivation, photos, supportedPets });
-        // Navigate to the Sitter Dashboard
-        router.push('/(petSitterTabs)/'); // Final step for this onboarding flow
+
+        const profileData = { bio, motivation, photos, supportedPets };
+        setPetSitterOnboardingData(profileData); // This will merge with existing petSitterData in the store
+        console.log('Pet Sitter Profile Details saved to store:', profileData);
+
+        // Log all collected data as this is the final sitter onboarding step
+        const allOnboardingData = getAllData();
+        console.log('--- All Collected Onboarding Data (Pet Sitter - Final Step) ---');
+        console.log('Registration:', {
+            name: allOnboardingData.name,
+            email: allOnboardingData.email,
+            // Password not logged
+            street: allOnboardingData.street,
+            city: allOnboardingData.city,
+            postcode: allOnboardingData.postcode,
+            role: allOnboardingData.role,
+        });
+        console.log('Subscription:', {
+            plan: allOnboardingData.plan,
+            hasSubscribed: allOnboardingData.hasSubscribed
+        });
+        console.log('Pet Sitter Experience/Details:', {
+            experienceLevel: allOnboardingData.experienceLevel,
+            availability: allOnboardingData.availability,
+            alwaysAcceptRequests: allOnboardingData.alwaysAcceptRequests,
+        });
+        console.log('Pet Sitter Profile:', {
+            bio: allOnboardingData.bio,
+            motivation: allOnboardingData.motivation,
+            photos: allOnboardingData.photos,
+            supportedPets: allOnboardingData.supportedPets,
+        });
+        console.log('-----------------------------------------------------------------');
+
+        router.replace('/(petSitterTabs)'); // Navigate to pet sitter dashboard
     };
 
     const handlePrevious = () => {
-        router.push('/onboarding/pet-sitter/details');
+        router.push('/onboarding/pet-sitter/details'); // Navigate back to details/experience screen
     };
 
     const toggleSupportedPet = (petType: 'cats' | 'dogs') => {
@@ -56,12 +87,12 @@ const PetSitterProfileScreen = () => {
 
             {/* Personality */}
             <View className="mb-md">
-                <Text className="text-sm font-semibold text-text-dark mb-xs">Personality</Text>
+                <Text className="text-sm font-semibold text-text-dark mb-xs">Personality & Bio</Text>
                 <TextInput
                     className="border border-gray-300 p-sm rounded-md bg-white text-text-dark h-24"
-                    placeholder="Describe your personality (e.g., patient, energetic, calm)"
-                    value={personality}
-                    onChangeText={setPersonality}
+                    placeholder="Describe your personality, and a bit about yourself..."
+                    value={bio}
+                    onChangeText={setBio}
                     multiline
                 />
             </View>

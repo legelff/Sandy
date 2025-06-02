@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Button, ScrollView, TextInput, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, Button, ScrollView, TextInput, Switch, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { PawPrint, CalendarDays, Clock } from 'lucide-react-native'; // Added icons
 import { colors, spacing } from '../../../theme';
+import { useOnboardingStore } from '../../../store/onboardingStore'; // Import the store
 // Assuming you might use React Native Paper components for Checkbox later if desired
 // import { Checkbox as PaperCheckbox } from 'react-native-paper';
 
@@ -14,7 +15,7 @@ interface AvailabilityDetail {
     toTime: string;
 }
 
-interface AvailabilityData {
+export interface AvailabilityData { // Exporting for potential use in store if not already shared
     Monday: AvailabilityDetail;
     Tuesday: AvailabilityDetail;
     Wednesday: AvailabilityDetail;
@@ -38,10 +39,11 @@ const DAYS_OF_WEEK: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
 
 const PetSitterExperienceScreen = () => {
     const router = useRouter();
+    const { setPetSitterOnboardingData } = useOnboardingStore(); // Correctly get only the setter
 
     const [yearsExperience, setYearsExperience] = useState('');
     const [availability, setAvailability] = useState<AvailabilityData>(initialAvailability);
-    const [alwaysAccept, setAlwaysAccept] = useState(false);
+    const [alwaysAccept, setAlwaysAccept] = useState(false); // Renamed to alwaysAccept for clarity with store
 
     const handleAvailabilityChange = (day: DayOfWeek, field: keyof AvailabilityDetail, value: string | boolean) => {
         setAvailability(prev => ({
@@ -54,19 +56,24 @@ const PetSitterExperienceScreen = () => {
     };
 
     const handleNext = () => {
-        // Basic validation (can be expanded)
         if (!yearsExperience) {
-            console.log('Please enter years of experience.');
-            // Show alert to user
+            Alert.alert('Missing Information', 'Please enter your years of experience.');
             return;
         }
-        console.log('Pet Sitter Experience & Availability:', { yearsExperience, availability, alwaysAccept });
-        // Navigate to the next step (PetSitterProfileScreen)
-        router.push('/onboarding/pet-sitter/profile');
+
+        const experienceData = {
+            experienceLevel: yearsExperience,
+            availability,
+            alwaysAcceptRequests: alwaysAccept,
+        };
+
+        setPetSitterOnboardingData(experienceData); // No need to spread previous state here, store action handles merging
+        console.log('Pet Sitter Experience Details saved to store:', experienceData);
+        router.push('/onboarding/pet-sitter/profile'); // Navigate to profile screen
     };
 
     const handlePrevious = () => {
-        router.push('/onboarding/pet-sitter/subscription');
+        router.push('/onboarding/pet-sitter/subscription'); // Navigate back to subscription screen
     };
 
     return (

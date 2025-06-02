@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Button, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Button, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CheckCircle2, XCircle, PawPrint } from 'lucide-react-native';
 import { colors, spacing } from '../../../theme'; // Assuming theme is in src/theme
+import { useOnboardingStore } from '../../../store/onboardingStore'; // Import the store
 
 // Define feature names for Pet Sitter subscriptions
 const FEATURE_NAME_SITTER = {
@@ -46,6 +47,7 @@ const SITTER_SUBSCRIPTION_OPTIONS = [
 const PetSitterSubscriptionScreen = () => {
     const router = useRouter();
     const [selectedSubscription, setSelectedSubscription] = useState<string | null>(null);
+    const { setSubscriptionData } = useOnboardingStore(); // Removed getAllData
 
     const handleSelectSubscription = (subscriptionId: string) => {
         setSelectedSubscription(subscriptionId);
@@ -53,18 +55,17 @@ const PetSitterSubscriptionScreen = () => {
 
     const handleNext = () => {
         if (selectedSubscription) {
-            console.log('Selected Pet Sitter Subscription:', selectedSubscription);
-            // Navigate to the next step in pet sitter onboarding
-            router.push('/onboarding/pet-sitter/details');
+            setSubscriptionData({ plan: selectedSubscription, hasSubscribed: true });
+            console.log('Selected Pet Sitter Subscription and saved to store:', selectedSubscription);
+
+            router.push('/onboarding/pet-sitter/details'); // Navigate to details screen
         } else {
-            console.log('Please select a subscription.');
-            // Optionally, show an alert to the user
+            Alert.alert('Selection Required', 'Please select a subscription plan to continue.');
         }
     };
 
     const handlePrevious = () => {
-        // Navigate back to the role selection or previous registration step
-        router.back();
+        router.replace('/role-selection'); // Navigate back to role selection
     };
 
     return (
