@@ -27,7 +27,7 @@ export default function RootLayout() {
     return null; // Or a loading spinner
   }
 
-  console.log('RootLayout: isLoading is false. User subscriptionType:', user?.subscriptionType);
+  console.log('RootLayout: isLoading is false. User role:', user?.role);
 
   return (
     <Stack
@@ -49,9 +49,9 @@ export default function RootLayout() {
       {/* Add other auth/onboarding screens here if needed */}
 
       {/* Conditionally render tab layouts */}
-      {user?.subscriptionType === 'petSitter' ? (
+      {user?.role === 'sitter' ? (
         <Stack.Screen name="(petSitterTabs)" options={{ headerShown: false }} />
-      ) : user?.subscriptionType === 'petOwner' ? (
+      ) : user?.role === 'owner' ? (
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       ) : // No need for a fallback Stack.Screen here. Expo Router will try to render
         // one of the screens defined above (like "index") if no user or subscription type is found.

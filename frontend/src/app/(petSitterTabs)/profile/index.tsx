@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Title, Divider } from 'react-native-paper';
-import { UserCircle, MapPin, Mail, Edit3, ShieldCheck, Award } from 'lucide-react-native'; // Added ShieldCheck, Award for sitter specific info
+import { UserCircle, MapPin, Mail, Edit3, ShieldCheck, Award, LogOut } from 'lucide-react-native'; // Added ShieldCheck, Award for sitter specific info, LogOut for logout
 import { colors } from '../../../theme';
 import { useRouter } from 'expo-router';
 
@@ -35,6 +35,13 @@ const PetSitterProfileScreen: React.FC = () => {
         });
     };
 
+    const handleLogout = () => {
+        // Implement your logout logic here
+        // For example, navigate to the login screen
+        router.replace('/login'); // Or your login route
+        console.log("User logged out");
+    };
+
     return (
         <PaperProvider>
             <SafeAreaView style={styles.safeArea}>
@@ -57,6 +64,10 @@ const PetSitterProfileScreen: React.FC = () => {
                         <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
                             <Edit3 size={18} color={colors.primary} />
                             <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.editProfileButton, styles.logoutButton]} onPress={handleLogout}>
+                            <LogOut size={18} color={colors.danger} />
+                            <Text style={[styles.editProfileButtonText, styles.logoutButtonText]}>Logout</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -166,6 +177,13 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontSize: 14,
         fontWeight: '600',
+    },
+    logoutButton: {
+        backgroundColor: colors.danger + '20',
+        marginTop: 10, // Add some space above the logout button
+    },
+    logoutButtonText: {
+        color: colors.danger,
     },
     userInfoSection: {
         backgroundColor: '#fff',

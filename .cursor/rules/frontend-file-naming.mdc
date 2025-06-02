@@ -1,9 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-Components/Screens: PascalCase.tsx
-Hooks: useCamelCase.ts
-
-Other files: camelCase.ts
