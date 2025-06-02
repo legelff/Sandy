@@ -73,12 +73,12 @@ const PetOwnerSubscriptionScreen = () => {
     const handleNext = () => {
         if (selectedSubscription) {
             setSubscriptionData({ plan: selectedSubscription, hasSubscribed: true });
-            console.log('Selected Pet Owner Subscription and saved to store:', selectedSubscription);
+            // console.log('Selected Pet Owner Subscription and saved to store:', selectedSubscription);
 
             // Navigate to the add pets screen
             router.push('/onboarding/pet-owner/add-pets');
         } else {
-            console.log('Please select a subscription.');
+            // console.log('Please select a subscription.');
         }
     };
 

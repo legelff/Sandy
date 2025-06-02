@@ -56,7 +56,7 @@ const PetSitterSubscriptionScreen = () => {
     const handleNext = () => {
         if (selectedSubscription) {
             setSubscriptionData({ plan: selectedSubscription, hasSubscribed: true });
-            console.log('Selected Pet Sitter Subscription and saved to store:', selectedSubscription);
+            // console.log('Selected Pet Sitter Subscription and saved to store:', selectedSubscription);
 
             router.push('/onboarding/pet-sitter/details'); // Navigate to details screen
         } else {

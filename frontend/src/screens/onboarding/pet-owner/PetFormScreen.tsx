@@ -276,17 +276,17 @@ const PetFormScreen = () => {
 
         if (isEditing) {
             updatePet(petData);
-            console.log('Pet updated in store:', petData);
+            // console.log('Pet updated in store:', petData);
         } else {
             addPet(petData);
-            console.log('Pet added to store (first pet flow):', petData);
+            // console.log('Pet added to store (first pet flow):', petData);
         }
 
         if (params.fromAddPets) {
-            console.log('Navigating from PetFormScreen back to /onboarding/pet-owner/add-pets (replace)');
+            // console.log('Navigating from PetFormScreen back to /onboarding/pet-owner/add-pets (replace)');
             router.replace('/onboarding/pet-owner/add-pets');
         } else {
-            console.log('Navigating from PetFormScreen to /onboarding/pet-owner/add-pets (push)');
+            // console.log('Navigating from PetFormScreen to /onboarding/pet-owner/add-pets (push)');
             router.push('/onboarding/pet-owner/add-pets');
         }
     };

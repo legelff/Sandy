@@ -9,7 +9,7 @@ const RoleSelectionScreen = () => {
     const { setRegistrationData } = useOnboardingStore(); // Get the setter function
 
     const handleSelectRole = (role: 'petOwner' | 'petSitter') => {
-        console.log('Selected role:', role);
+        // console.log('Selected role:', role);
         setRegistrationData({ role }); // Save role to store
 
         if (role === 'petOwner') {

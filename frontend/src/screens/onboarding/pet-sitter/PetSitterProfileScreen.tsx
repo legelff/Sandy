@@ -26,7 +26,7 @@ const PetSitterProfileScreen = () => {
 
         const profileData = { bio, motivation, photos, supportedPets };
         setPetSitterOnboardingData(profileData);
-        console.log('Pet Sitter Profile Details saved to store:', profileData);
+        // console.log('Pet Sitter Profile Details saved to store:', profileData);
 
         const allOnboardingData = getAllData();
 
@@ -75,8 +75,8 @@ const PetSitterProfileScreen = () => {
             photos: allOnboardingData.photos,
         };
 
-        console.log('--- Attempting to Register Pet Sitter ---');
-        console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+        // console.log('--- Attempting to Register Pet Sitter ---');
+        // console.log('Request Body:', JSON.stringify(requestBody, null, 2));
 
         try {
             const response = await fetch('http://192.168.1.52:3000/auth/register/sitter', {
@@ -90,7 +90,7 @@ const PetSitterProfileScreen = () => {
             const responseData = await response.json();
 
             if (response.ok) {
-                console.log('Registration successful:', responseData);
+                // console.log('Registration successful:', responseData);
                 Alert.alert('Registration Successful', 'Your pet sitter profile has been created!');
                 resetOnboardingState();
                 router.replace('/(petSitterTabs)');
@@ -114,7 +114,7 @@ const PetSitterProfileScreen = () => {
 
     // Placeholder for photo upload logic
     const handlePhotoUpload = () => {
-        console.log('Photo upload triggered');
+        // console.log('Photo upload triggered');
         // This would typically open an image picker
         if (photos.length < 3) {
             setPhotos([...photos, `photo${photos.length + 1}.jpg`]); // Placeholder URI

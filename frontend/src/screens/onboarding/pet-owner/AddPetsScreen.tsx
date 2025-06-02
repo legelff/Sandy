@@ -22,27 +22,27 @@ const AddPetsScreen = () => {
 
     const handleDeletePet = (petId: string) => {
         removePet(petId);
-        console.log('Pet removed from store:', petId);
+        // console.log('Pet removed from store:', petId);
     };
 
     const handleNext = async () => {
         const allOnboardingData = getAllData();
-        console.log('--- All Collected Onboarding Data (Pet Owner - Preparing for API) ---');
-        console.log('Registration Data:', {
-            name: allOnboardingData.name,
-            email: allOnboardingData.email,
-            // Password is not logged for security but will be sent
-            street: allOnboardingData.street,
-            city: allOnboardingData.city,
-            postcode: allOnboardingData.postcode,
-            role: allOnboardingData.role,
-        });
-        console.log('Pets Data (Raw from Store):', allOnboardingData.pets);
-        console.log('Subscription Data:', {
-            plan: allOnboardingData.plan,
-            hasSubscribed: allOnboardingData.hasSubscribed
-        });
-        console.log('-------------------------------------------------------------------');
+        // console.log('--- All Collected Onboarding Data (Pet Owner - Preparing for API) ---');
+        // console.log('Registration Data:', {
+        //     name: allOnboardingData.name,
+        //     email: allOnboardingData.email,
+        //     // Password is not logged for security but will be sent
+        //     street: allOnboardingData.street,
+        //     city: allOnboardingData.city,
+        //     postcode: allOnboardingData.postcode,
+        //     role: allOnboardingData.role,
+        // });
+        // console.log('Pets Data (Raw from Store):', allOnboardingData.pets);
+        // console.log('Subscription Data:', {
+        //     plan: allOnboardingData.plan,
+        //     hasSubscribed: allOnboardingData.hasSubscribed
+        // });
+        // console.log('-------------------------------------------------------------------');
 
         // --- Prepare data for the API ---
         let subscription_id;
@@ -97,9 +97,9 @@ const AddPetsScreen = () => {
             // role is implicitly 'owner' by using this endpoint
         };
 
-        console.log('--- Payload for /auth/register/owner ---');
-        console.log(JSON.stringify(registrationPayload, null, 2));
-        console.log('-----------------------------------------');
+        // console.log('--- Payload for /auth/register/owner ---');
+        // console.log(JSON.stringify(registrationPayload, null, 2));
+        // console.log('-----------------------------------------');
 
         try {
             const response = await fetch('http://192.168.1.52:3000/auth/register/owner', {
@@ -113,8 +113,7 @@ const AddPetsScreen = () => {
             const responseData = await response.json();
 
             if (response.ok && responseData.status === 200) {
-                console.log('Registration successful:', responseData);
-                Alert.alert('Success!', 'Registration completed successfully.');
+                // console.log('Registration successful:', responseData);
                 resetOnboardingState(); // Clear onboarding data
                 router.replace('/(tabs)'); // Navigate to the main dashboard
             } else {

@@ -54,10 +54,10 @@ const RegistrationScreen: React.FC<RegistrationScreenProps> = ({ onNavigateToLog
         if (validate()) {
             const registrationDetails = { name, email, password, street, city, postcode };
             setRegistrationData(registrationDetails);
-            console.log('Form is valid, data saved to store:', registrationDetails);
+            // console.log('Form is valid, data saved to store:', registrationDetails);
             router.push('/role-selection');
         } else {
-            console.log('Form is invalid:', errors);
+            // console.log('Form is invalid:', errors);
         }
     };
 

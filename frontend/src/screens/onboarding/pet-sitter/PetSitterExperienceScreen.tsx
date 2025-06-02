@@ -68,7 +68,7 @@ const PetSitterExperienceScreen = () => {
         };
 
         setPetSitterOnboardingData(experienceData); // No need to spread previous state here, store action handles merging
-        console.log('Pet Sitter Experience Details saved to store:', experienceData);
+        // console.log('Pet Sitter Experience Details saved to store:', experienceData);
         router.push('/onboarding/pet-sitter/profile'); // Navigate to profile screen
     };
 

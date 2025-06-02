@@ -55,7 +55,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
                 const data = await response.json();
 
                 if (response.ok && data.status === 200 && data.user && data.token) {
-                    console.log('Login successful:', data);
+                    // console.log('Login successful:', data);
                     setAuthData(data.user, data.token);
 
                     // Navigate based on role
@@ -87,7 +87,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
                 setIsLoading(false);
             }
         } else {
-            console.log('Login form is invalid:', errors);
+            // console.log('Login form is invalid:', errors);
         }
     };
 
