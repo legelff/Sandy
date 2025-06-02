@@ -7,14 +7,14 @@ import { useOnboardingStore } from '../../../store/onboardingStore'; // Import t
 
 const PetSitterProfileScreen = () => {
     const router = useRouter();
-    const { setPetSitterOnboardingData, getAllData } = useOnboardingStore(); // Get store action and getAllData
+    const { setPetSitterOnboardingData, getAllData, resetOnboardingState } = useOnboardingStore(); // Get store action, getAllData, and resetOnboardingState
 
     const [bio, setBio] = useState('');
     const [motivation, setMotivation] = useState('');
     const [photos, setPhotos] = useState<string[]>([]); // Placeholder for photo URIs
     const [supportedPets, setSupportedPets] = useState<{ cats: boolean; dogs: boolean }>({ cats: false, dogs: false });
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (!bio || !motivation) {
             Alert.alert('Missing Information', 'Please fill in your personality and motivation.');
             return;
@@ -25,39 +25,83 @@ const PetSitterProfileScreen = () => {
         }
 
         const profileData = { bio, motivation, photos, supportedPets };
-        setPetSitterOnboardingData(profileData); // This will merge with existing petSitterData in the store
+        setPetSitterOnboardingData(profileData);
         console.log('Pet Sitter Profile Details saved to store:', profileData);
 
-        // Log all collected data as this is the final sitter onboarding step
         const allOnboardingData = getAllData();
-        console.log('--- All Collected Onboarding Data (Pet Sitter - Final Step) ---');
-        console.log('Registration:', {
+
+        const parseExperienceLevel = (level?: string): number => {
+            if (!level) return 0;
+            const lowerLevel = level.toLowerCase();
+            if (lowerLevel.includes("0-1") || lowerLevel.includes("beginner")) return 0;
+            if (lowerLevel.includes("1-3") || lowerLevel.includes("intermediate")) return 1;
+            if (lowerLevel.includes("3+") || lowerLevel.includes("experienced")) return 3;
+            const match = level.match(/\d+/);
+            return match ? parseInt(match[0], 10) : 0;
+        };
+        const transformedExperienceYears = parseExperienceLevel(allOnboardingData.experienceLevel);
+
+        const personalityAndMotivation = `${allOnboardingData.bio || ''}\n\nMotivation: ${allOnboardingData.motivation || ''}`.trim();
+
+        const transformedAvailability = allOnboardingData.availability
+            ? Object.entries(allOnboardingData.availability)
+                .filter(([, detail]) => detail.isAvailable)
+                .map(([day, detail]) => ({
+                    day_of_week: day,
+                    start_time: detail.fromTime,
+                    end_time: detail.toTime,
+                }))
+            : [];
+
+        const getSubscriptionId = (plan?: string): number | undefined => {
+            if (!plan) return undefined;
+            const lowerPlan = plan.toLowerCase();
+            if (lowerPlan.includes('basic')) return 1;
+            if (lowerPlan.includes('premium')) return 2;
+            return undefined; // Or a default/error value if appropriate
+        };
+
+        const requestBody = {
             name: allOnboardingData.name,
             email: allOnboardingData.email,
-            // Password not logged
+            password: allOnboardingData.password,
             street: allOnboardingData.street,
             city: allOnboardingData.city,
             postcode: allOnboardingData.postcode,
-            role: allOnboardingData.role,
-        });
-        console.log('Subscription:', {
-            plan: allOnboardingData.plan,
-            hasSubscribed: allOnboardingData.hasSubscribed
-        });
-        console.log('Pet Sitter Experience/Details:', {
-            experienceLevel: allOnboardingData.experienceLevel,
-            availability: allOnboardingData.availability,
-            alwaysAcceptRequests: allOnboardingData.alwaysAcceptRequests,
-        });
-        console.log('Pet Sitter Profile:', {
-            bio: allOnboardingData.bio,
-            motivation: allOnboardingData.motivation,
+            experience_years: transformedExperienceYears,
+            personality_and_motivation: personalityAndMotivation,
+            subscription_id: getSubscriptionId(allOnboardingData.plan),
+            availability: transformedAvailability,
             photos: allOnboardingData.photos,
-            supportedPets: allOnboardingData.supportedPets,
-        });
-        console.log('-----------------------------------------------------------------');
+        };
 
-        router.replace('/(petSitterTabs)'); // Navigate to pet sitter dashboard
+        console.log('--- Attempting to Register Pet Sitter ---');
+        console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+
+        try {
+            const response = await fetch('http://192.168.1.52:3000/auth/register/sitter', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            const responseData = await response.json();
+
+            if (response.ok) {
+                console.log('Registration successful:', responseData);
+                Alert.alert('Registration Successful', 'Your pet sitter profile has been created!');
+                resetOnboardingState();
+                router.replace('/(petSitterTabs)');
+            } else {
+                console.error('Registration failed:', responseData);
+                Alert.alert('Registration Failed', responseData.message || `Error: ${response.status} - ${responseData.errType || 'Unknown error type'}`);
+            }
+        } catch (error: any) {
+            console.error('Network or other error during registration:', error);
+            Alert.alert('Registration Error', error.message || 'An unexpected error occurred. Please check your network connection and try again.');
+        }
     };
 
     const handlePrevious = () => {
@@ -165,4 +209,4 @@ const PetSitterProfileScreen = () => {
     );
 };
 
-export default PetSitterProfileScreen; 
+export default PetSitterProfileScreen;
