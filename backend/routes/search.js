@@ -372,7 +372,7 @@ router.get('/owner', async (req, res) => {
 
   try {
     const query = `
-      SELECT p.name, s.name AS species
+      SELECT p.id, p.name, s.name AS species
       FROM pets p
       LEFT JOIN species s ON p.species_id = s.id
       WHERE p.owner_id = $1

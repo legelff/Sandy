@@ -5,13 +5,8 @@ import { Text, TextInput, RadioButton, Checkbox, Provider as PaperProvider, Card
 import { useRouter } from 'expo-router';
 import { colors } from '../../../theme'; // Adjusted import path
 import { CalendarDays, MapPin, Briefcase } from 'lucide-react-native';
+import { useEffect } from 'react';
 
-// Dummy data for pets - replace with actual data source later
-const USER_PETS = [
-    { id: '1', name: 'Buddy (Dog)' },
-    { id: '2', name: 'Lucy (Cat)' },
-    { id: '3', name: 'Charlie (Dog)' },
-];
 
 const SERVICE_PACKAGES = ['Basic', 'Extended'];
 
@@ -29,6 +24,29 @@ const SearchIndexScreen: React.FC = () => {
     // Date picker visibility states (if using modal pickers)
     const [showFromDatePicker, setShowFromDatePicker] = useState(false);
     const [showToDatePicker, setShowToDatePicker] = useState(false);
+
+    const [userPets, setUserPets] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+    const fetchPets = async () => {
+        try {
+        const userId = 1; // Replace with actual user ID from auth or context
+        const response = await fetch(`http://localhost:3000/search/owner?user_id=${userId}`);
+        const data = await response.json();
+
+        const petsFromAPI = data.pets.map((pet: any) => ({
+            id: pet.id.toString(), // Use actual pet.id
+            name: `${pet.name} (${pet.species})`
+        }));
+
+        setUserPets(petsFromAPI);
+        } catch (error) {
+        console.error('Failed to fetch pets:', error);
+        }
+    };
+
+    fetchPets();
+    }, []);
 
     const togglePetSelection = (petId: string) => {
         setSelectedPetIds(prev =>
@@ -81,7 +99,7 @@ const SearchIndexScreen: React.FC = () => {
                         <Card style={styles.card}>
                             <Card.Content>
                                 <Title style={styles.cardTitle}>Select Your Pet(s)</Title>
-                                {USER_PETS.map(pet => (
+                                {userPets.map(pet => (
                                     <Checkbox.Item
                                         key={pet.id}
                                         label={pet.name}
