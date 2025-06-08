@@ -102,7 +102,7 @@ const AddPetsScreen = () => {
         // console.log('-----------------------------------------');
 
         try {
-            const response = await fetch('http://192.168.1.52:3000/auth/register/owner', {
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/auth/register/owner`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

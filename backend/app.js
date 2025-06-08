@@ -46,7 +46,7 @@ app.set('view engine', 'jade');
 const allowedOrigins = [
   /^(http:\/\/localhost)(:\d+)?$/, // Allows http://localhost:anyport
   /^(http:\/\/127\.0\.0\.1)(:\d+)?$/, // Allows http://127.0.0.1:anyport
-  /^(http:\/\/192\.168\.1\.52)(:\d+)?$/, // Allows http://192.168.1.52:anyport (replace with your actual dev machine IP if different)
+  /^(http:\/\/192\.168\.1\.\d+)(:\d+)?$/, // Allows http://192.168.1.XXX:anyport (oh no a security vulnerability! (idc))
   // If your Expo app sends an Origin header like exp://... you might need to handle that,
   // but typically HTTP requests will have an http origin.
 ];

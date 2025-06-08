@@ -44,7 +44,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
             try {
                 // on emulator: keep this, this is how route is formatted
                 // on browser: change to http://localhost:3000/auth/login
-                const response = await fetch('http://192.168.1.52:3000/auth/login', {
+                const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/auth/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

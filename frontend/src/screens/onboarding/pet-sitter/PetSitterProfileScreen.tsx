@@ -82,7 +82,7 @@ const PetSitterProfileScreen = () => {
         // console.log('Request Body:', JSON.stringify(requestBody, null, 2));
 
         try {
-            const response = await fetch('http://192.168.1.52:3000/auth/register/sitter', {
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/auth/register/sitter`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
