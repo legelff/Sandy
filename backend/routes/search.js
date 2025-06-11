@@ -35,7 +35,7 @@ From 1 to 10, how compatible is this sitter with this pet? Respond with only a n
       ]
     }, {
       headers: {
-        Authorization: `Bearer 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`,
+        Authorization: `Bearer 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`,
         'Content-Type': 'application/json'
       }
     });
@@ -107,13 +107,22 @@ router.get('/results', async (req, res) => {
     city,
     postcode,
     service_tier
-  } = req.body;
+  } = req.query;
 
   if (!start_date || !end_date || !pets.length) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  const speciesRequested = [...new Set(pets.map(p => p.species.toLowerCase()))];
+  const petIds = pets.split(',').map(id => parseInt(id)).filter(Boolean);
+
+  const petRows = await pool.query(
+    `SELECT DISTINCT s.name as species 
+    FROM pets p 
+    JOIN species s ON s.id = p.species_id 
+    WHERE p.id = ANY($1)`,
+    [petIds]
+  );
+    const speciesRequested = petRows.rows.map(r => r.species.toLowerCase());
   const serviceTierRequired = service_tier === 'premium';
 
   try {
@@ -150,6 +159,7 @@ router.get('/results', async (req, res) => {
     `;
 
     const result = await pool.query(query, [serviceTierRequired]);
+    console.log('✅ Sitters fetched from DB:', result.rows.length);
     const matchingSitters = [];
 
     for (const sitter of result.rows) {
@@ -157,7 +167,15 @@ router.get('/results', async (req, res) => {
       const supportsAllPets = speciesRequested.every(spec => supported.includes(spec));
       const availableDays = sitter.available_days || [];
       const isAvailable = requiredDays.every(day => availableDays.includes(day));
-      if (!supportsAllPets || !isAvailable) continue;
+        if (!supportsAllPets) {
+    console.log(`❌ Sitter ${sitter.name} filtered out due to unsupported species`, { required: speciesRequested, supported });
+        continue;
+      }
+
+      if (!isAvailable) {
+        console.log(`❌ Sitter ${sitter.name} filtered out due to unavailability`, { requiredDays, availableDays });
+        continue;
+      }
 
       let totalPersonalityScore = 0;
       for (const pet of pets) {
@@ -179,6 +197,7 @@ router.get('/results', async (req, res) => {
 
 
       matchingSitters.push({
+        sitter_user_id: sitter.user_id,
         sitter_id: sitter.sitter_id,
         name: sitter.name,
         distance: parseFloat(distance.toFixed(2)),
