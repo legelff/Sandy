@@ -25,6 +25,8 @@ A pet sitter wrote this about themselves:
 From 1 to 10, how compatible is this sitter with this pet? Respond with only a number. Do not explain.
     `.trim();
 
+    console.log("🔍 Sending prompt to GROQ:", prompt); // Debug line to inspect prompt
+
     const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
       model: "meta-llama/llama-4-scout-17b-16e-instruct",
       messages: [
@@ -35,7 +37,7 @@ From 1 to 10, how compatible is this sitter with this pet? Respond with only a n
       ]
     }, {
       headers: {
-        Authorization: `Bearer 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`,
+        Authorization: `Bearer ${process.env.GROQ_KEY}`,
         'Content-Type': 'application/json'
       }
     });
@@ -115,14 +117,21 @@ router.get('/results', async (req, res) => {
 
   const petIds = pets.split(',').map(id => parseInt(id)).filter(Boolean);
 
-  const petRows = await pool.query(
-    `SELECT DISTINCT s.name as species 
-    FROM pets p 
-    JOIN species s ON s.id = p.species_id 
-    WHERE p.id = ANY($1)`,
-    [petIds]
-  );
-    const speciesRequested = petRows.rows.map(r => r.species.toLowerCase());
+    const petDetailsRes = await pool.query(`
+      SELECT 
+        p.id, 
+        p.personality, 
+        p.favorite_activities_and_needs, 
+        p.energy_level, 
+        p.comfort_with_strangers,
+        s.name AS species
+      FROM pets p
+      LEFT JOIN species s ON s.id = p.species_id
+      WHERE p.id = ANY($1)
+    `, [petIds]);
+
+    const petDetails = petDetailsRes.rows;
+    const speciesRequested = petDetails.map(r => r.species.toLowerCase());
   const serviceTierRequired = service_tier === 'premium';
 
   try {
@@ -178,7 +187,7 @@ router.get('/results', async (req, res) => {
       }
 
       let totalPersonalityScore = 0;
-      for (const pet of pets) {
+      for (const pet of petDetails) {
         const score = await getPersonalityMatchScore(pet, sitter.personality_and_motivation);
         totalPersonalityScore += score;
       }

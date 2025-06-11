@@ -10,7 +10,7 @@ type SitterProps = {
         sitter_id: number;
         name: string;
         distance: number;
-        //pictures: string[];
+        pictures: string[];
         average_rating: number;
         supported_pets: string[];
         personality: string;
@@ -33,7 +33,7 @@ const SitterCard: React.FC<SitterProps> = ({ sitter }) => {
 
     return (
         <Card style={styles.card}>
-            {/* <Image 
+            <Image 
                 source={{ 
                     uri: sitter.pictures?.[0] || fallbackImage
                     
@@ -41,7 +41,7 @@ const SitterCard: React.FC<SitterProps> = ({ sitter }) => {
                 style={styles.image} 
                 resizeMode="cover"
                 onError={handleImageError}
-            /> */}
+            />
             <Card.Content style={styles.content}>
                 <Title style={styles.name}>{sitter.name}</Title>
                 <View style={styles.statsRow}>
