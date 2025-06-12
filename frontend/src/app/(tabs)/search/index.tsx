@@ -107,6 +107,8 @@ const SearchIndexScreen: React.FC = () => {
             });
 
             console.log('Search results:', data.matching_sitters);
+
+
         } catch (error) {
             console.error('Search failed:', error);
             alert('Failed to find matching sitters. Please try again.');

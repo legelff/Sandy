@@ -191,7 +191,8 @@ router.get('/results', async (req, res) => {
         const score = await getPersonalityMatchScore(pet, sitter.personality_and_motivation);
         totalPersonalityScore += score;
       }
-      const avgPersonalityScore = totalPersonalityScore / pets.length;
+
+      const avgPersonalityScore = totalPersonalityScore / petIds.length;
       const sitterAddress = `${sitter.street}, ${sitter.city}, ${sitter.postcode}`;
       const sitterCoords = await geocode(sitterAddress);
 
@@ -214,9 +215,9 @@ router.get('/results', async (req, res) => {
         average_rating: sitter.average_rating || 0,
         supported_pets: supported,
         personality: sitter.personality_and_motivation,
-        personality_match_score: avgPersonalityScore,
-        combined_score: combinedScore
+        personality_match_score: avgPersonalityScore
       });
+
     }
 
     matchingSitters.sort((a, b) => b.combined_score - a.combined_score);

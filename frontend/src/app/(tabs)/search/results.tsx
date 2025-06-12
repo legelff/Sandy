@@ -66,6 +66,7 @@ const SearchResultsScreen = () => {
 
     const onSwipeComplete = useCallback(async (liked: boolean) => {
     const currentSitter = sitters[currentIndex];
+
     
         if (liked) {
             const payload = {
@@ -165,7 +166,18 @@ const SearchResultsScreen = () => {
                             return (
                                 <GestureDetector gesture={panGesture} key={sitter.sitter_id}>
                                     <Animated.View style={[styles.animatedCard, animatedCardStyle]}>
-                                        <SitterCard sitter={sitter} />
+                                                  <SitterCard
+                                                    sitter={{
+                                                    id: sitter.sitter_user_id.toString(),
+                                                    personality_match_score: sitter.personality_match_score,
+                                                    name: sitter.name,
+                                                    imageUrl: sitter.pictures?.[0] || 'https://via.placeholder.com/400x600.png?text=Pet+Sitter',
+                                                    distance: sitter.distance.toFixed(1) + ' km',
+                                                    rating: sitter.average_rating,
+                                                    supportedPets: sitter.supported_pets,
+                                                    personality: sitter.personality
+                                                    }}
+                                                />
                                         <Animated.View style={[styles.overlayLabel, styles.likeLabel, likeOpacity]}>
                                             <Heart size={80} color="green" fill="green" />
                                         </Animated.View>
@@ -180,7 +192,18 @@ const SearchResultsScreen = () => {
                         if (index === currentIndex + 1) {
                             return (
                                 <Animated.View key={sitter.sitter_id} style={[styles.animatedCard, styles.nextCard]}>
-                                    <SitterCard sitter={sitter} />
+                                    <SitterCard
+                                        sitter={{
+                                            id: sitter.sitter_user_id.toString(),
+                                            name: sitter.name,
+                                            personality_match_score: sitter.personality_match_score,
+                                            imageUrl: sitter.pictures?.[0] || 'https://via.placeholder.com/400x600.png?text=Pet+Sitter',
+                                            distance: `${sitter.distance.toFixed(1)} km`,
+                                            rating: sitter.average_rating,
+                                            supportedPets: sitter.supported_pets,
+                                            personality: sitter.personality
+                                        }}/>
+
                                 </Animated.View>
                             );
                         }

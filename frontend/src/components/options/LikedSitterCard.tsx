@@ -7,6 +7,7 @@ import { colors } from '../../theme';
 export interface LikedSitter {
     id: string;
     sitterName: string;
+    sitterUserId: string;
     distance: string;
     rating: number;
     selectedPets: string[]; // e.g., ['Buddy (Dog)', 'Lucy (Cat)']
@@ -15,6 +16,7 @@ export interface LikedSitter {
     relevancyScore: number; // e.g., 85%
     // Potentially add sitterImageUrl or other fields if needed for future enhancements
 }
+
 
 interface LikedSitterCardProps {
     sitterOption: LikedSitter;
@@ -60,7 +62,7 @@ const LikedSitterCard: React.FC<LikedSitterCardProps> = ({ sitterOption, onDelet
                 </View>
 
                 <Paragraph style={styles.relevancyText}>
-                    Relevancy: <Text style={styles.relevancyScore}>{sitterOption.relevancyScore}%</Text>
+                    Relevancy: <Text style={styles.relevancyScore}>{sitterOption.relevancyScore}</Text>
                 </Paragraph>
 
             </Card.Content>

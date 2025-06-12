@@ -11,6 +11,45 @@ const pool = new Pool({
   port: 5432,
 });
 
+async function getPersonalityMatchScore(pet, sitterPersonality) {
+  try {
+    const prompt = `
+A pet has the following traits:
+- Personality: ${pet.personality}
+- Favorite Activities: ${pet.favorite_activities_and_needs}
+- Energy Level: ${pet.energy_level}
+- Comfort with Strangers: ${pet.comfort_with_strangers}
+
+A pet sitter wrote this about themselves:
+"${sitterPersonality}"
+
+From 1 to 10, how compatible is this sitter with this pet? Respond with only a number. Do not explain.
+    `.trim();
+
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [{ role: 'user', content: prompt }],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const raw = response.data.choices[0].message.content.trim();
+    const match = raw.match(/\d+/);
+    const score = match ? parseInt(match[0]) : 5;
+    return isNaN(score) ? 5 : score;
+  } catch (err) {
+    console.error('❌ AI match error:', err.message);
+    return 5;
+  }
+}
+
 async function geocode(address) {
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
   const res = await axios.get(url, {
@@ -107,13 +146,13 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    // Geocode owner's address from the request
     const ownerCoords = await geocode(`${ownerStreet}, ${ownerCity}, ${ownerPostcode}`);
 
     const bookingsQuery = `
       SELECT b.id AS booking_id, b.start_datetime, b.end_datetime,
              b.service_tier,
              u.name AS sitter_name, u.id AS sitter_user_id,
+             ps.personality_and_motivation AS sitter_personality,
              ps.id AS sitter_id,
              u.street AS sitter_street,
              u.city AS sitter_city,
@@ -134,39 +173,46 @@ router.get('/', async (req, res) => {
       const distance = getDistanceKm(ownerCoords.lat, ownerCoords.lng, sitterCoords.lat, sitterCoords.lng);
 
       const petsQuery = `
-        SELECT p.name, s.name AS species
+        SELECT p.name, s.name AS species,
+               p.personality, p.favorite_activities_and_needs,
+               p.energy_level, p.comfort_with_strangers
         FROM booking_pets bp
         JOIN pets p ON p.id = bp.pet_id
         JOIN species s ON s.id = p.species_id
         WHERE bp.booking_id = $1
       `;
       const petsRes = await pool.query(petsQuery, [b.booking_id]);
+      const pets = petsRes.rows;
 
-      const mainImgQuery = `
-        SELECT url FROM sitter_photos WHERE sitter_id = $1 LIMIT 1
-      `;
+      const mainImgQuery = `SELECT url FROM sitter_photos WHERE sitter_id = $1 LIMIT 1`;
       const mainImgRes = await pool.query(mainImgQuery, [b.sitter_id]);
 
-      const ratingQuery = `
-        SELECT ROUND(AVG(rating))::int AS avg_rating FROM user_reviews WHERE user_id = $1
-      `;
+      const ratingQuery = `SELECT ROUND(AVG(rating))::int AS avg_rating FROM user_reviews WHERE user_id = $1`;
       const ratingRes = await pool.query(ratingQuery, [b.sitter_user_id]);
+
+      // Personality matching score
+      const scores = await Promise.all(
+        pets.map(pet => getPersonalityMatchScore(pet, b.sitter_personality))
+      );
+      const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 
       response.push({
         booking_id: b.booking_id,
         save_id: b.booking_id,
         sitter_id: b.sitter_id,
+        sitter_user_id: b.sitter_user_id,
         sitter_name: b.sitter_name,
         main_img: mainImgRes.rows[0]?.url || null,
         average_rating: ratingRes.rows[0]?.avg_rating || 0,
         start_date: b.start_datetime,
         end_date: b.end_datetime,
-        selected_pets: petsRes.rows.map(p => p.name),
+        selected_pets: pets.map(p => p.name),
         distance: parseFloat(distance.toFixed(2)),
         street_address: b.sitter_street,
         city: b.sitter_city,
         postcode: b.sitter_postcode,
-        service_tier: b.service_tier || 'Basic'
+        service_tier: b.service_tier || 'Basic',
+        personality_match_score: avgScore
       });
     }
 
