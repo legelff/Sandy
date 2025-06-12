@@ -229,7 +229,6 @@ router.get('/results', async (req, res) => {
   }
 });
 
-
 router.get('/sitter', async (req, res) => {
   const sitterUserId = req.query.user_id;
   if (!sitterUserId) return res.status(400).json({ error: 'user_id is required' });
@@ -251,7 +250,7 @@ router.get('/sitter', async (req, res) => {
     const sitterCoords = await geocode(sitterAddress);
 
     const bookingQuery = `
-      SELECT b.id AS request_id, b.street, b.city, b.postcode, b.owner_id, u.name AS owner_name
+      SELECT b.id AS request_id, b.street, b.city, b.postcode, b.start_datetime, b.end_datetime, b.owner_id, u.name AS owner_name
       FROM bookings b
       JOIN users u ON u.id = b.owner_id
       WHERE b.sitter_id = $1 AND b.status = 'requested'
@@ -259,10 +258,6 @@ router.get('/sitter', async (req, res) => {
     const bookings = await pool.query(bookingQuery, [sitterId]);
 
     const results = [];
-    console.log('🔎 Raw sitterUser result:', sitterUserRes.rows);
-    console.log('🧑 Final sitterUser:', sitterUser);
-    console.log('📍 Final address used for geocoding:', sitterAddress);
-
 
     for (const booking of bookings.rows) {
       const bookingAddress = `${booking.street}, ${booking.city}, ${booking.postcode}`;
@@ -271,7 +266,6 @@ router.get('/sitter', async (req, res) => {
         sitterCoords.lat, sitterCoords.lng,
         bookingCoords.lat, bookingCoords.lng
       );
-
 
       const petsQuery = `
         SELECT p.id AS pet_id, s.name AS pet_species, p.personality
@@ -282,6 +276,15 @@ router.get('/sitter', async (req, res) => {
       `;
       const pets = await pool.query(petsQuery, [booking.request_id]);
 
+      // ✅ Moved inside loop
+      const ratingQuery = `
+        SELECT ROUND(AVG(rating), 1)::float AS avg_rating
+        FROM user_reviews
+        WHERE user_id = $1
+      `;
+      const ratingRes = await pool.query(ratingQuery, [booking.owner_id]);
+      const averageRating = ratingRes.rows[0]?.avg_rating || 0;
+
       results.push({
         request_id: booking.request_id,
         owner_name: booking.owner_name,
@@ -290,7 +293,10 @@ router.get('/sitter', async (req, res) => {
           pet_id: p.pet_id,
           pet_species: p.pet_species
         })),
-        personality: pets.rows.map(p => p.personality).join(', ')
+        personality: pets.rows.map(p => p.personality).join(', '),
+        start_date: new Date(booking.start_datetime).toLocaleDateString('en-CA'),
+        end_date: new Date(booking.end_datetime).toLocaleDateString('en-CA'),
+        average_rating: averageRating
       });
     }
 
@@ -300,6 +306,7 @@ router.get('/sitter', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 
 

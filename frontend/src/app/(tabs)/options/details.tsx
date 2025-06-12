@@ -95,7 +95,7 @@ useEffect(() => {
 
         const payload = {
             user_id: user.id, // from auth store
-            sitter_user_id: parseInt(sitter.sitterUserId), // make sure it's number
+            sitter_user_id: parseInt(sitter.sitterUserId), 
             start_date: fromDate,
             end_date: toDate,
             selected_pets: selectedPetIds.map(id => parseInt(id)), // convert to numbers
@@ -108,7 +108,7 @@ useEffect(() => {
         console.log('Sending booking payload from details screen:', payload);
 
         try {
-            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/save`, {
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/options/confirm`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

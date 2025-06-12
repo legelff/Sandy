@@ -22,7 +22,7 @@ interface SitterCardProps {
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.9;
-const CARD_HEIGHT = width * 1.2;
+const CARD_HEIGHT = width * 1.4;
 
 const SitterCard: React.FC<SitterCardProps> = ({ sitter }) => {
   const fallbackImage = 'https://via.placeholder.com/400x600.png?text=Pet+Sitter';

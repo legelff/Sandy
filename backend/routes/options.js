@@ -78,7 +78,7 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
 router.post('/confirm', async (req, res) => {
   const {
     user_id,
-    sitter_id,
+    sitter_user_id,  // ✅ Expect this instead of sitter_id
     selected_pets,
     start_date,
     end_date,
@@ -88,11 +88,24 @@ router.post('/confirm', async (req, res) => {
     service_tier
   } = req.body;
 
-  if (!user_id || !sitter_id || !selected_pets?.length || !start_date || !end_date) {
+  if (!user_id || !sitter_user_id || !selected_pets?.length || !start_date || !end_date) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
+    // ✅ Get sitter_id using sitter_user_id
+    const sitterRes = await pool.query(
+      `SELECT id FROM pet_sitters WHERE user_id = $1`,
+      [sitter_user_id]
+    );
+
+    if (sitterRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Pet sitter not found for given user' });
+    }
+
+    const sitter_id = sitterRes.rows[0].id;
+
+    // ✅ Continue with sitter_id
     const bookingRes = await pool.query(
       `SELECT id FROM bookings 
        WHERE owner_id = $1 AND sitter_id = $2 AND status = 'saved' 
@@ -132,6 +145,8 @@ router.post('/confirm', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
+
 
 router.get('/', async (req, res) => {
   const {
@@ -222,6 +237,5 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
-
 
 module.exports = router;

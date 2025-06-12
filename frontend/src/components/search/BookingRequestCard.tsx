@@ -4,18 +4,18 @@ import { colors, spacing } from '../../theme'; // Removed typography
 import { MapPin, CalendarDays, PawPrint, Smile, Star } from 'lucide-react-native';
 
 export interface BookingRequest {
-    id: string;
-    requesterName: string; // Name of the pet owner
-    requesterImageUrl?: string; // Optional image of the pet owner or pet
-    petNames: string[];
-    distance: string; // e.g., "2 km away"
-    location: string; // e.g., "City, State" or general area
-    rating?: number; // Pet owner's rating (if available)
-    bookingStartDate: string; // e.g., "2023-10-26"
-    bookingEndDate: string;   // e.g., "2023-10-28"
-    petPersonalities: string[]; // Array of personality traits
-    // Add any other relevant fields for a booking request
+  id: string;
+  requesterName: string;
+  requesterImageUrl?: string;
+  petNames: string[];
+  distance: string;
+  location: string;
+  rating?: number;
+  bookingStartDate: string;
+  bookingEndDate: string;
+  petPersonalities: string[];
 }
+
 
 interface BookingRequestCardProps {
     request: BookingRequest;
@@ -44,12 +44,13 @@ const BookingRequestCard: React.FC<BookingRequestCardProps> = ({ request }) => {
                     <Text style={styles.detailText}>{request.distance} - {request.location}</Text>
                 </View>
 
-                {request.rating && (
+                {request.rating !== undefined && (
                     <View style={styles.detailRow}>
                         <Star size={16} color={colors.primary} style={styles.icon} />
                         <Text style={styles.detailText}>Owner Rating: {request.rating.toFixed(1)} / 5</Text>
                     </View>
                 )}
+
 
                 <View style={styles.detailRow}>
                     <CalendarDays size={16} color={colors.primary} style={styles.icon} />
@@ -59,7 +60,7 @@ const BookingRequestCard: React.FC<BookingRequestCardProps> = ({ request }) => {
                 {request.petPersonalities.length > 0 && (
                     <View style={styles.detailRow}>
                         <Smile size={16} color={colors.primary} style={styles.icon} />
-                        <Text style={styles.detailText}>Personality: {request.petPersonalities.join(', ')}</Text>
+                        <Text style={styles.detailText}>Pet personality: {request.petPersonalities.join(', ')}</Text>
                     </View>
                 )}
             </View>

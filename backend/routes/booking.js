@@ -198,4 +198,28 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 });
 
+router.post('/respond', async (req, res) => {
+  const { booking_id, action } = req.body;
+
+  if (!booking_id || action !== 'accepted') {
+    return res.status(400).json({ error: 'Invalid request. booking_id and valid action required.' });
+  }
+
+  try {
+    const updateRes = await pool.query(
+      `UPDATE bookings SET status = 'accepted' WHERE id = $1 RETURNING *`,
+      [booking_id]
+    );
+
+    if (updateRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    res.status(200).json({ message: 'Booking accepted and updated', booking: updateRes.rows[0] });
+  } catch (err) {
+    console.error('Error in /bookings/respond:', err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 module.exports = router;
