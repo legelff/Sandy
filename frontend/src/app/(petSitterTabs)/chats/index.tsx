@@ -26,11 +26,10 @@ const PetSitterChatsScreen: React.FC = () => {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to fetch chats');
-                const data = await res.json();
-                // Map backend data to ChatItem[]
+                const data = await res.json();                // Map backend data to ChatItem[]
                 const mappedChats = data.map((c: any) => ({
                     id: c.id.toString(),
-                    sitterName: c.user1_id === user.id ? c.user2_name : c.user1_name, // For sitter, this is the owner name
+                    ownerName: c.user1_id === user.id ? c.user2_name : c.user1_name,
                     petName: c.pet_name || '',
                 }));
                 setChats(mappedChats);
@@ -39,16 +38,16 @@ const PetSitterChatsScreen: React.FC = () => {
             }
         };
         fetchChats();
-    }, [token, user]);
-
-    // Renamed sitterName to otherUserName for clarity, as it's the Pet Owner here
-    const handleNavigateToChat = (chatId: string, otherUserName: string, petName?: string) => {
+    }, [token, user]); const handleNavigateToChat = (chatId: string, ownerName: string, petName?: string) => {
         router.push({
-            pathname: '/(petSitterTabs)/chats/chat', // Updated path
-            // Pass otherUserName as 'sitterName' to keep ChatScreen prop consistent, or update ChatScreen
-            params: { chatId, sitterName: otherUserName, petName }
+            pathname: '/(petSitterTabs)/chats/chat',
+            params: {
+                chatId,
+                ownerName, // Changed from sitterName to ownerName to match the expected param
+                petName
+            }
         });
-        console.log(`Navigating to chat with ${otherUserName} (ID: ${chatId}), Pet: ${petName}`);
+        console.log(`Navigating to chat with ${ownerName} (ID: ${chatId}), Pet: ${petName}`);
     };
 
     return (

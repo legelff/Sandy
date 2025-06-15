@@ -25,7 +25,7 @@ const ChatsListScreen: React.FC = () => {
                 // Map backend data to ChatItem[]
                 const mappedChats = data.map((c: any) => ({
                     id: c.id.toString(),
-                    sitterName: c.user1_id === user.id ? c.user2_name : c.user1_name, // Adjust as needed
+                    ownerName: c.user1_id === user.id ? c.user2_name : c.user1_name,
                     petName: c.pet_name || '', // Adjust if you have pet info
                 }));
                 setChats(mappedChats);

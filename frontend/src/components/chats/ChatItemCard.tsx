@@ -6,7 +6,7 @@ import { colors } from '../../theme';
 
 export interface ChatItem {
     id: string; // Unique ID for the chat
-    sitterName: string;
+    ownerName: string;
     petName: string;
     // lastMessage?: string; // Optional: for future preview
     // timestamp?: string;   // Optional: for future sorting/display
@@ -15,7 +15,7 @@ export interface ChatItem {
 
 interface ChatItemCardProps {
     chatItem: ChatItem;
-    onPress: (chatId: string, sitterName: string) => void;
+    onPress: (chatId: string, ownerName: string) => void;
 }
 
 /**
@@ -24,18 +24,17 @@ interface ChatItemCardProps {
  * @returns {React.ReactElement} The ChatItemCard component.
  */
 const ChatItemCard: React.FC<ChatItemCardProps> = ({ chatItem, onPress }) => {
-    return (
-        <TouchableOpacity onPress={() => onPress(chatItem.id, chatItem.sitterName)}>
-            <Card style={styles.card}>
-                <Card.Content style={styles.cardContent}>
-                    <View style={styles.infoContainer}>
-                        <Text style={styles.sitterName}>{chatItem.sitterName}</Text>
-                        <Text style={styles.petName}>({chatItem.petName})</Text>
-                    </View>
-                    <ChevronRight size={24} color={colors.primary} />
-                </Card.Content>
-            </Card>
-        </TouchableOpacity>
+    console.log(chatItem)
+    return (<TouchableOpacity onPress={() => onPress(chatItem.id, chatItem.ownerName)}>
+        <Card style={styles.card}>
+            <Card.Content style={styles.cardContent}>
+                <View style={styles.infoContainer}>
+                    <Text style={styles.sitterName}>{chatItem.ownerName}</Text>
+                </View>
+                <ChevronRight size={24} color={colors.primary} />
+            </Card.Content>
+        </Card>
+    </TouchableOpacity>
     );
 };
 

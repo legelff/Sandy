@@ -36,27 +36,35 @@ module.exports = (io) => {
         const userId = req.user.id;
 
         try {
-            const result = await pool.query(
-                `SELECT c.*, 
-            m.content AS latest_message, 
-            m.timestamp AS latest_message_time
-        FROM conversations c
-        LEFT JOIN LATERAL (
-            SELECT content, timestamp
-            FROM messages
-            WHERE conversation_id = c.id
-            ORDER BY timestamp DESC
-            LIMIT 1
-        ) m ON true
-        WHERE c.user1_id = $1 OR c.user2_id = $1
-        ORDER BY m.timestamp DESC NULLS LAST`,
+            const result = await pool.query(`SELECT 
+                    c.id,
+                    c.user1_id,
+                    c.user2_id,
+                    m.content AS latest_message,
+                    m.timestamp AS latest_message_time,
+                    u1.name as user1_name,
+                    u2.name as user2_name
+                FROM conversations c
+                LEFT JOIN LATERAL (
+                    SELECT content, timestamp
+                    FROM messages
+                    WHERE conversation_id = c.id
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                ) m ON true
+                LEFT JOIN users u1 ON c.user1_id = u1.id
+                LEFT JOIN users u2 ON c.user2_id = u2.id
+                WHERE c.user1_id = $1 OR c.user2_id = $1
+                ORDER BY m.timestamp DESC NULLS LAST`,
                 [userId]
             );
 
             res.json(result.rows);
         } catch (err) {
+            console.error('Error fetching conversations:', err);
             res.status(500).json({
-                error: 'Failed to fetch conversations'
+                error: 'Failed to fetch conversations',
+                details: err.message
             });
         }
     });

@@ -42,10 +42,9 @@ const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_METRO}:3000`;
 const PetSitterChatScreen: React.FC = () => {
     const router = useRouter();
     const navigation = useNavigation();
-    const params = useLocalSearchParams();
-    const { chatId, sitterName: ownerNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
+    const params = useLocalSearchParams(); const { chatId, ownerName: ownerNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
         chatId: string;
-        sitterName: string;
+        ownerName: string;
         petName?: string;
         bookingConfirmation?: string;
     };
