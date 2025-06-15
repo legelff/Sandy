@@ -131,11 +131,10 @@ const PetSitterChatScreen: React.FC = () => {
                     },
                     ...prev,
                 ]);
-            });
-            socketRef.current.on('chat history', (payload: any) => {
+            }); socketRef.current.on('chat history', (payload: any) => {
                 const mapped = payload.messages.map((m: any) => ({
                     id: m.id.toString(),
-                    text: m.content,
+                    content: JSON.parse(m.content),
                     sender: m.sender_id === user.id ? 'user' : 'owner',
                     timestamp: new Date(m.timestamp)
                 }));
@@ -161,54 +160,81 @@ const PetSitterChatScreen: React.FC = () => {
             });
         }
         setInputText('');
-    };
+    }; const handleSendImage = async (imageUri: string, base64Data?: string) => {
+        return new Promise((resolve, reject) => {
+            try {
+                let formData = new FormData();
 
-    const handleSendImage = async (imageUri: string, base64Data?: string) => {
-        try {
-            let formData = new FormData();
-            if (Platform.OS === 'web' && base64Data) {
-                // Convert base64 to Blob for web
-                const arr = base64Data.split(',');
-                const mime = arr[0].match(/:(.*?);/)[1];
-                const bstr = atob(arr[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while (n--) {
-                    u8arr[n] = bstr.charCodeAt(n);
+                if (Platform.OS === 'web' && base64Data) {
+                    // Clean and validate base64 data
+                    const cleanBase64 = base64Data.split(';base64,').pop() || '';
+                    try {
+                        const byteCharacters = atob(cleanBase64);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                        formData.append('image', blob, 'chat-image.jpg');
+                    } catch (e) {
+                        console.error('Invalid base64:', e);
+                        throw new Error('Invalid image data');
+                    }
+                } else {
+                    // Native: use file URI
+                    formData.append('image', {
+                        uri: imageUri,
+                        type: 'image/jpeg',
+                        name: 'chat-image.jpg',
+                    } as any);
                 }
-                const blob = new Blob([u8arr], { type: mime });
-                formData.append('image', blob, 'chat-image.jpg');
-            } else {
-                // Native: use file URI
-                const fileObj = {
-                    uri: imageUri,
-                    name: 'chat-image.jpg',
-                    type: 'image/jpeg',
-                };
-                formData.append('image', fileObj as any);
-            }
-            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-            if (!res.ok) throw new Error('Image upload failed');
-            const data = await res.json();
 
-            if (socketRef.current) {
-                const content: MessageContent = {
-                    type: 'image',
-                    url: data.url
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`);
+
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            if (data.url && socketRef.current) {
+                                const content: MessageContent = {
+                                    type: 'image',
+                                    url: data.url
+                                };
+                                socketRef.current.emit('chat message', {
+                                    conversationId: chatId,
+                                    content: JSON.stringify(content)
+                                });
+                                setShowCamera(false);
+                                resolve(data);
+                            } else {
+                                throw new Error('Invalid response format');
+                            }
+                        } catch (e) {
+                            reject(new Error('Failed to parse response'));
+                        }
+                    } else {
+                        reject(new Error('Upload failed'));
+                    }
                 };
-                socketRef.current.emit('chat message', {
-                    conversationId: chatId,
-                    content: JSON.stringify(content)
-                });
+
+                xhr.onerror = function () {
+                    reject(new Error('Network error'));
+                };
+
+                xhr.send(formData);
+            } catch (error) {
+                console.error('Error preparing upload:', error);
+                Alert.alert('Upload Failed', 'Could not prepare image for upload.');
+                setShowCamera(false);
+                reject(error);
             }
-            setShowCamera(false);
-        } catch (err) {
+        }).catch(error => {
+            console.error('Error uploading image:', error);
             Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
             setShowCamera(false);
-        }
+        });
     };
 
     const handleBook = () => {
@@ -236,37 +262,33 @@ const PetSitterChatScreen: React.FC = () => {
     };
 
     const handleTakePicture = async () => {
-        if (!cameraRef.current || !cameraReady) {
+        if (cameraRef.current && cameraReady) {
+            try {
+                const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: Platform.OS === 'web' });
+                if (Platform.OS === 'web' && photo?.base64) {
+                    // Web: pass base64 data
+                    handleSendImage('', 'data:image/jpeg;base64,' + photo.base64);
+                } else if (photo?.uri && typeof photo.uri === 'string' && photo.uri.startsWith('file://')) {
+                    handleSendImage(photo.uri);
+                } else if (photo?.base64) {
+                    // Native fallback (should not happen)
+                    const fileUri = FileSystem.cacheDirectory + 'chat-image.jpg';
+                    let base64Data = photo.base64;
+                    if (base64Data.startsWith('data:image')) {
+                        base64Data = base64Data.split(',')[1];
+                    }
+                    await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+                    handleSendImage(fileUri);
+                } else {
+                    console.warn('Camera did not return a file:// URI or base64:', photo);
+                    Alert.alert('Camera Error', 'Could not get a valid file URI for the photo.');
+                }
+            } catch (error) {
+                console.error('Failed to take picture:', error);
+                Alert.alert('Camera Error', error?.message || 'Failed to take picture.');
+            }
+        } else {
             Alert.alert('Camera not ready', 'Please wait for the camera to initialize.');
-            return;
-        }
-
-        try {
-            const photo = await cameraRef.current.takePictureAsync({
-                quality: 0.5,
-                base64: Platform.OS === 'web'
-            });
-
-            if (!photo) {
-                throw new Error('Failed to capture photo');
-            }
-
-            // For web, we use base64
-            if (Platform.OS === 'web' && photo.base64) {
-                handleSendImage('', `data:image/jpeg;base64,${photo.base64}`);
-                return;
-            }
-
-            // For native, we use the URI
-            if (photo.uri) {
-                handleSendImage(photo.uri);
-                return;
-            }
-
-            throw new Error('No valid photo data received');
-        } catch (error) {
-            console.error('Camera error:', error);
-            Alert.alert('Camera Error', 'Failed to take picture. Please try again.');
         }
     };
 
@@ -359,11 +381,16 @@ const PetSitterChatScreen: React.FC = () => {
                     <Text style={[styles.messageText, isUserMessage ? styles.userMessageText : styles.sitterMessageText]}>
                         {item.content.text}
                     </Text>
-                )}
-
-                {/* Image messages */}
+                )}                {/* Image messages */}
                 {item.content.type === 'image' && item.content.url && (
-                    <Image source={{ uri: item.content.url }} style={styles.chatImage} />
+                    <Image
+                        source={{
+                            uri: item.content.url.startsWith('http')
+                                ? item.content.url
+                                : `http://${process.env.EXPO_PUBLIC_METRO}:3000${item.content.url}`
+                        }}
+                        style={styles.chatImage}
+                    />
                 )}
 
                 <Text style={styles.messageTimestamp}>
