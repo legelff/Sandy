@@ -2,6 +2,9 @@ const express = require('express');
 const { verifyToken, JWT_SECRET } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const pool = new Pool({
     user: process.env.DB_USER ?? 'postgres',
@@ -10,6 +13,20 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT ?? 5432,
 });
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
 
 module.exports = (io) => {
     const router = express.Router();
@@ -101,6 +118,16 @@ module.exports = (io) => {
                 error: 'Database error'
             });
         }
+    });
+
+    // Image upload endpoint for chat
+    router.post('/upload', upload.single('image'), (req, res) => {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        // Return the URL relative to the backend server
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ url: fileUrl });
     });
 
     // Socket.IO handlers

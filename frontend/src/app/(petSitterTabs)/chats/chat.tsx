@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Modal } from 'react-native';
+import { View, StyleSheet, FlatList, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, IconButton, Button as PaperButton, Card, Chip, Title } from 'react-native-paper';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { colors } from '../../../theme';
 import { Camera as CameraIcon, Send, Briefcase, CheckCircle, XCircle } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import io from 'socket.io-client';
+import { useAuthStore } from '../../../store/useAuthStore';
+import * as FileSystem from 'expo-file-system';
 
 interface Message {
     id: string;
     text?: string;
     imageUri?: string;
+    imageUrl?: string; // Add this for backend-served images
     sender: 'user' | 'owner';
     timestamp: Date;
     bookingDetails?: BookingConfirmationDetails;
@@ -29,15 +33,7 @@ interface BookingConfirmationDetails {
     status: 'pending' | 'accepted' | 'declined';
 }
 
-// Dummy messages for a given chat (Pet Sitter with Pet Owner)
-const DUMMY_MESSAGES: Message[] = [
-    { id: 'm1', text: 'Hello Alice! Thanks for accepting my request for Buddy.', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 5), messageType: 'text' },
-    {
-        id: 'm2', text: "Hi! You're welcome.Looking forward to meeting Buddy!", sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 4), messageType: 'text'
-    },
-    { id: 'm3', text: 'Just wanted to confirm the drop-off time.', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 3), messageType: 'text' },
-    { id: 'm4', text: 'Sounds good, see you then!', sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 2), messageType: 'text' },
-];
+const SOCKET_URL = 'http://localhost:3000';
 
 const PetSitterChatScreen: React.FC = () => {
     const router = useRouter();
@@ -52,11 +48,14 @@ const PetSitterChatScreen: React.FC = () => {
 
     const ownerName = ownerNameFromNav || "Pet Owner";
 
-    const [messages, setMessages] = useState<Message[]>(DUMMY_MESSAGES);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState<string>('');
     const [permission, requestPermission] = useCameraPermissions();
     const [showCamera, setShowCamera] = useState<boolean>(false);
     const cameraRef = useRef<CameraView>(null);
+    const [cameraReady, setCameraReady] = useState<boolean>(false);
+    const socketRef = useRef<any>(null);
+    const { user, token } = useAuthStore();
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -70,41 +69,124 @@ const PetSitterChatScreen: React.FC = () => {
                 const bookingDetails: BookingConfirmationDetails = JSON.parse(bookingConfirmationString);
                 const bookingMessage: Message = {
                     id: `booking-${Date.now()}`,
-                    sender: 'user',
+                    sender: 'owner',
                     timestamp: new Date(),
                     bookingDetails: bookingDetails,
                     messageType: 'booking_confirmation',
                 };
                 setMessages(prevMessages => [bookingMessage, ...prevMessages]);
             } catch (error) {
-                console.error("Failed to parse booking confirmation:", error);
+                console.error('Failed to parse booking confirmation:', error);
             }
         }
     }, [bookingConfirmationString]);
 
+    useEffect(() => {
+        // Fetch messages from backend
+        if (!token || !user) return;
+        const fetchMessages = async () => {
+            try {
+                const res = await fetch(`http://localhost:3000/chat/${chatId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch messages');
+                const data = await res.json();
+                // Map backend data to Message[]
+                const mapped = data.map((m: any) => ({
+                    id: m.id.toString(),
+                    text: m.content,
+                    sender: m.sender_id === user.id ? 'user' : 'owner',
+                    timestamp: new Date(m.timestamp),
+                    messageType: 'text',
+                }));
+                setMessages(mapped.reverse());
+            } catch (e) {
+                setMessages([]);
+            }
+        };
+        fetchMessages();
+    }, [chatId, token, user]);
+
+    useEffect(() => {
+        // Connect to socket
+        if (!token || !user) return;
+        const connectSocket = async () => {
+            socketRef.current = io(SOCKET_URL, {
+                auth: { token },
+            });
+            socketRef.current.emit('join conversation', { conversationId: chatId });
+            socketRef.current.on('chat message', (msg: any) => {
+                setMessages(prev => [
+                    {
+                        id: msg.id.toString(),
+                        text: msg.content,
+                        sender: msg.sender_id === user.id ? 'user' : 'owner',
+                        timestamp: new Date(msg.timestamp),
+                        messageType: 'text',
+                    },
+                    ...prev,
+                ]);
+            });
+            socketRef.current.on('chat history', (payload: any) => {
+                const mapped = payload.messages.map((m: any) => ({
+                    id: m.id.toString(),
+                    text: m.content,
+                    sender: m.sender_id === user.id ? 'user' : 'owner',
+                    timestamp: new Date(m.timestamp),
+                    messageType: 'text',
+                }));
+                setMessages(mapped.reverse());
+            });
+        };
+        connectSocket();
+        return () => {
+            if (socketRef.current) socketRef.current.disconnect();
+        };
+    }, [chatId, token, user]);
+
     const handleSendMessage = () => {
         if (inputText.trim().length === 0) return;
-        const newMessage: Message = {
-            id: `msg${Date.now()}`,
-            text: inputText.trim(),
-            sender: 'user',
-            timestamp: new Date(),
-            messageType: 'text',
-        };
-        setMessages(prevMessages => [newMessage, ...prevMessages]);
+        if (socketRef.current) {
+            socketRef.current.emit('chat message', {
+                conversationId: chatId,
+                content: inputText.trim(),
+            });
+        }
         setInputText('');
     };
 
-    const handleSendImage = (imageUri: string) => {
-        const newMessage: Message = {
-            id: `img${Date.now()}`,
-            imageUri,
-            sender: 'user',
-            timestamp: new Date(),
-            messageType: 'image',
-        };
-        setMessages(prevMessages => [newMessage, ...prevMessages]);
-        setShowCamera(false);
+    const handleSendImage = async (imageUri: string) => {
+        try {
+            // Log the imageUri and file object for debugging
+            const fileObj = {
+                uri: imageUri,
+                name: 'chat-image.jpg',
+                type: 'image/jpeg',
+            };
+            console.log('Uploading image with file object:', fileObj);
+            if (!imageUri || typeof imageUri !== 'string' || !imageUri.startsWith('file://')) {
+                console.warn('Image URI is invalid or not a file:// URI:', imageUri);
+            }
+            const formData = new FormData();
+            formData.append('image', fileObj as any);
+            const res = await fetch('http://localhost:3000/chat/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (!res.ok) throw new Error('Image upload failed');
+            const data = await res.json();
+            if (socketRef.current) {
+                socketRef.current.emit('chat message', {
+                    conversationId: chatId,
+                    content: '',
+                    imageUrl: data.url,
+                });
+            }
+            setShowCamera(false);
+        } catch (err) {
+            Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
+            setShowCamera(false);
+        }
     };
 
     const handleBook = () => {
@@ -132,16 +214,31 @@ const PetSitterChatScreen: React.FC = () => {
     };
 
     const handleTakePicture = async () => {
-        if (cameraRef.current) {
+        if (cameraRef.current && cameraReady) {
             try {
-                const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
-                if (photo?.uri) {
+                const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 }); // Do NOT use base64: true
+                if (photo?.uri && typeof photo.uri === 'string' && photo.uri.startsWith('file://')) {
                     handleSendImage(photo.uri);
+                } else if (photo?.base64) {
+                    // Convert base64 to file and upload
+                    const fileUri = FileSystem.cacheDirectory + 'chat-image.jpg';
+                    // Remove prefix if present
+                    let base64Data = photo.base64;
+                    if (base64Data.startsWith('data:image')) {
+                        base64Data = base64Data.split(',')[1];
+                    }
+                    await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+                    handleSendImage(fileUri);
+                } else {
+                    console.warn('Camera did not return a file:// URI or base64:', photo);
+                    Alert.alert('Camera Error', 'Could not get a valid file URI for the photo.');
                 }
             } catch (error) {
-                console.error("Failed to take picture: ", error);
-                alert("Failed to take picture. Please try again.");
+                console.error('Failed to take picture:', error);
+                Alert.alert('Camera Error', error?.message || 'Failed to take picture.');
             }
+        } else {
+            Alert.alert('Camera not ready', 'Please wait for the camera to initialize.');
         }
     };
 
@@ -172,12 +269,12 @@ const PetSitterChatScreen: React.FC = () => {
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
-        const isUser = item.sender === 'user';
+        const isUserMessage = item.sender === 'user';
 
         if (item.messageType === 'booking_confirmation' && item.bookingDetails) {
             const details = item.bookingDetails;
             return (
-                <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.sitterMessage, styles.bookingCardContainer]}>
+                <View style={[styles.messageBubble, isUserMessage ? styles.userMessage : styles.sitterMessage, styles.bookingCardContainer]}>
                     <Card style={styles.bookingCard}>
                         <Card.Content>
                             <Title style={styles.bookingTitle}>Booking Proposal</Title>
@@ -218,14 +315,17 @@ const PetSitterChatScreen: React.FC = () => {
         }
 
         return (
-            <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.sitterMessage]}>
+            <View style={[styles.messageBubble, isUserMessage ? styles.userMessage : styles.sitterMessage]}>
                 {item.text ? (
-                    <Text style={[styles.messageText, isUser ? styles.userMessageText : styles.sitterMessageText]}>
+                    <Text style={[styles.messageText, isUserMessage ? styles.userMessageText : styles.sitterMessageText]}>
                         {item.text}
                     </Text>
                 ) : null}
                 {item.imageUri ? (
                     <Image source={{ uri: item.imageUri }} style={styles.chatImage} />
+                ) : null}
+                {item.imageUrl ? (
+                    <Image source={{ uri: item.imageUrl }} style={styles.chatImage} />
                 ) : null}
                 <Text style={styles.messageTimestamp}>
                     {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -250,6 +350,7 @@ const PetSitterChatScreen: React.FC = () => {
                             facing={"back"}
                             flash={"off"}
                             autofocus="on"
+                            onCameraReady={() => setCameraReady(true)}
                         />
                         <View style={styles.cameraControls}>
                             <PaperButton onPress={() => setShowCamera(false)} mode="outlined" style={styles.cameraButton} labelStyle={{ color: colors.white }}>Cancel</PaperButton>
@@ -501,4 +602,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default PetSitterChatScreen; 
+export default PetSitterChatScreen;
