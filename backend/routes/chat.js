@@ -2,6 +2,9 @@ const express = require('express');
 const { verifyToken, JWT_SECRET } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const pool = new Pool({
     user: process.env.DB_USER ?? 'postgres',
@@ -11,6 +14,20 @@ const pool = new Pool({
     port: process.env.DB_PORT ?? 5432,
 });
 
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
+
 module.exports = (io) => {
     const router = express.Router();
 
@@ -19,27 +36,35 @@ module.exports = (io) => {
         const userId = req.user.id;
 
         try {
-            const result = await pool.query(
-                `SELECT c.*, 
-            m.content AS latest_message, 
-            m.timestamp AS latest_message_time
-        FROM conversations c
-        LEFT JOIN LATERAL (
-            SELECT content, timestamp
-            FROM messages
-            WHERE conversation_id = c.id
-            ORDER BY timestamp DESC
-            LIMIT 1
-        ) m ON true
-        WHERE c.user1_id = $1 OR c.user2_id = $1
-        ORDER BY m.timestamp DESC NULLS LAST`,
+            const result = await pool.query(`SELECT 
+                    c.id,
+                    c.user1_id,
+                    c.user2_id,
+                    m.content AS latest_message,
+                    m.timestamp AS latest_message_time,
+                    u1.name as user1_name,
+                    u2.name as user2_name
+                FROM conversations c
+                LEFT JOIN LATERAL (
+                    SELECT content, timestamp
+                    FROM messages
+                    WHERE conversation_id = c.id
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                ) m ON true
+                LEFT JOIN users u1 ON c.user1_id = u1.id
+                LEFT JOIN users u2 ON c.user2_id = u2.id
+                WHERE c.user1_id = $1 OR c.user2_id = $1
+                ORDER BY m.timestamp DESC NULLS LAST`,
                 [userId]
             );
 
             res.json(result.rows);
         } catch (err) {
+            console.error('Error fetching conversations:', err);
             res.status(500).json({
-                error: 'Failed to fetch conversations'
+                error: 'Failed to fetch conversations',
+                details: err.message
             });
         }
     });
@@ -101,6 +126,16 @@ module.exports = (io) => {
                 error: 'Database error'
             });
         }
+    });
+
+    // Image upload endpoint for chat
+    router.post('/upload', upload.single('image'), (req, res) => {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+        // Return the URL relative to the backend server
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ url: fileUrl });
     });
 
     // Socket.IO handlers

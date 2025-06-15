@@ -1,46 +1,53 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, Text as RNText } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import ChatItemCard, { ChatItem } from '../../../components/chats/ChatItemCard';
 import { colors } from '../../../theme';
+import { useAuthStore } from '../../../store/useAuthStore';
 
-// Placeholder data for chats (Pet Sitter perspective)
-const DUMMY_CHATS: ChatItem[] = [
-    {
-        id: 'chat1_owner',
-        // For Pet Sitter, sitterName would be the Pet Owner's name
-        sitterName: 'Alice Wonderland (Owner)',
-        petName: 'Buddy',
-    },
-    {
-        id: 'chat2_owner',
-        sitterName: 'Bob The Builder (Owner)',
-        petName: 'Lucy',
-    },
-    {
-        id: 'chat3_owner',
-        sitterName: 'Diana Prince (Owner)',
-        petName: 'Charlie',
-    },
-];
+// Removed placeholder data, now fetching from backend
 
 /**
  * PetSitterChatsScreen is the main chats screen for pet sitters.
  */
 const PetSitterChatsScreen: React.FC = () => {
     const router = useRouter();
-    const [chats, setChats] = useState<ChatItem[]>(DUMMY_CHATS);
+    const [chats, setChats] = useState<ChatItem[]>([]);
+    const { user, token } = useAuthStore();
 
-    // Renamed sitterName to otherUserName for clarity, as it's the Pet Owner here
-    const handleNavigateToChat = (chatId: string, otherUserName: string, petName?: string) => {
+    useEffect(() => {
+        if (!token || !user) return;
+        // Fetch chats from backend
+        const fetchChats = async () => {
+            try {
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch chats');
+                const data = await res.json();                // Map backend data to ChatItem[]
+                const mappedChats = data.map((c: any) => ({
+                    id: c.id.toString(),
+                    ownerName: c.user1_id === user.id ? c.user2_name : c.user1_name,
+                    petName: c.pet_name || '',
+                }));
+                setChats(mappedChats);
+            } catch (e) {
+                setChats([]);
+            }
+        };
+        fetchChats();
+    }, [token, user]); const handleNavigateToChat = (chatId: string, ownerName: string, petName?: string) => {
         router.push({
-            pathname: '/(petSitterTabs)/chats/chat', // Updated path
-            // Pass otherUserName as 'sitterName' to keep ChatScreen prop consistent, or update ChatScreen
-            params: { chatId, sitterName: otherUserName, petName }
+            pathname: '/(petSitterTabs)/chats/chat',
+            params: {
+                chatId,
+                ownerName, // Changed from sitterName to ownerName to match the expected param
+                petName
+            }
         });
-        console.log(`Navigating to chat with ${otherUserName} (ID: ${chatId}), Pet: ${petName}`);
+        console.log(`Navigating to chat with ${ownerName} (ID: ${chatId}), Pet: ${petName}`);
     };
 
     return (
@@ -121,4 +128,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default PetSitterChatsScreen; 
+export default PetSitterChatsScreen;
