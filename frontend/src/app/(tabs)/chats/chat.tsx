@@ -391,7 +391,14 @@ const PetOwnerChatScreen: React.FC = () => {
                     </Text>
                 )}
                 {item.content.type === 'image' && item.content.url && (
-                    <Image source={{ uri: item.content.url }} style={styles.chatImage} />
+                    <Image
+                        source={{
+                            uri: item.content.url.startsWith('http')
+                                ? item.content.url
+                                : `http://${process.env.EXPO_PUBLIC_METRO}:3000${item.content.url}`
+                        }}
+                        style={styles.chatImage}
+                    />
                 )}
                 <Text style={styles.messageTimestamp}>
                     {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
