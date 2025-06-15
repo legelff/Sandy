@@ -169,56 +169,80 @@ const PetOwnerChatScreen: React.FC = () => {
     };
 
     const handleSendImage = async (imageUri: string, base64Data?: string) => {
-        try {
-            let formData = new FormData();
-            if (Platform.OS === 'web' && base64Data) {
-                // Convert base64 to Blob for web
-                const arr = base64Data.split(',');
-                const mime = arr[0].match(/:(.*?);/)[1];
-                const bstr = atob(arr[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while (n--) {
-                    u8arr[n] = bstr.charCodeAt(n);
+        return new Promise((resolve, reject) => {
+            try {
+                let formData = new FormData();
+
+                if (Platform.OS === 'web' && base64Data) {
+                    // Clean and validate base64 data
+                    const cleanBase64 = base64Data.split(';base64,').pop() || '';
+                    try {
+                        const byteCharacters = atob(cleanBase64);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                        formData.append('image', blob, 'chat-image.jpg');
+                    } catch (e) {
+                        console.error('Invalid base64:', e);
+                        throw new Error('Invalid image data');
+                    }
+                } else {
+                    // Native: use file URI
+                    formData.append('image', {
+                        uri: imageUri,
+                        type: 'image/jpeg',
+                        name: 'chat-image.jpg',
+                    } as any);
                 }
-                const blob = new Blob([u8arr], { type: mime });
-                formData.append('image', blob, 'chat-image.jpg');
-            } else {
-                // Native: use file URI
-                formData.append('image', {
-                    uri: imageUri,
-                    type: 'image/jpeg',
-                    name: 'chat-image.jpg',
-                } as any);
-            }
 
-            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
-
-            if (!response.ok) throw new Error('Image upload failed');
-
-            const data = await response.json();
-            if (socketRef.current) {
-                const content: MessageContent = {
-                    type: 'image',
-                    url: data.url
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`); xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            if (data.url && socketRef.current) {
+                                // Ensure the URL uses the correct host and port
+                                const imageUrl = data.url.replace('localhost:8081', `${process.env.EXPO_PUBLIC_METRO}:3000`);
+                                const content: MessageContent = {
+                                    type: 'image',
+                                    url: imageUrl
+                                };
+                                socketRef.current.emit('chat message', {
+                                    conversationId: chatId,
+                                    content: JSON.stringify(content)
+                                });
+                                setShowCamera(false);
+                                resolve({ ...data, url: imageUrl });
+                            } else {
+                                throw new Error('Invalid response format');
+                            }
+                        } catch (e) {
+                            reject(new Error('Failed to parse response'));
+                        }
+                    } else {
+                        reject(new Error('Upload failed'));
+                    }
                 };
-                socketRef.current.emit('chat message', {
-                    conversationId: chatId,
-                    content: JSON.stringify(content)
-                });
+
+                xhr.onerror = function () {
+                    reject(new Error('Network error'));
+                };
+
+                xhr.send(formData);
+            } catch (error) {
+                console.error('Error preparing upload:', error);
+                Alert.alert('Upload Failed', 'Could not prepare image for upload.');
+                setShowCamera(false);
+                reject(error);
             }
-            setShowCamera(false);
-        } catch (error) {
+        }).catch(error => {
             console.error('Error uploading image:', error);
             Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
             setShowCamera(false);
-        }
+        });
     };
 
     const handleOpenBookingForm = () => {
