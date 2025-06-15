@@ -10,15 +10,18 @@ import io from 'socket.io-client';
 import { useAuthStore } from '../../../store/useAuthStore';
 import * as FileSystem from 'expo-file-system';
 
+interface MessageContent {
+    type: 'text' | 'image' | 'booking_confirmation';
+    text?: string;
+    url?: string;
+    bookingDetails?: BookingConfirmationDetails;
+}
+
 interface Message {
     id: string;
-    text?: string;
-    imageUri?: string;
-    imageUrl?: string; // Add this for backend-served images
+    content: MessageContent;
     sender: 'user' | 'owner';
     timestamp: Date;
-    bookingDetails?: BookingConfirmationDetails;
-    messageType?: 'text' | 'image' | 'booking_confirmation';
 }
 
 interface BookingConfirmationDetails {
@@ -33,7 +36,8 @@ interface BookingConfirmationDetails {
     status: 'pending' | 'accepted' | 'declined';
 }
 
-const SOCKET_URL = 'http://localhost:3000';
+
+const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_METRO}:3000`;
 
 const PetSitterChatScreen: React.FC = () => {
     const router = useRouter();
@@ -67,12 +71,15 @@ const PetSitterChatScreen: React.FC = () => {
         if (bookingConfirmationString && typeof bookingConfirmationString === 'string') {
             try {
                 const bookingDetails: BookingConfirmationDetails = JSON.parse(bookingConfirmationString);
+                const content: MessageContent = {
+                    type: 'booking_confirmation',
+                    bookingDetails
+                };
                 const bookingMessage: Message = {
                     id: `booking-${Date.now()}`,
+                    content: content,
                     sender: 'owner',
                     timestamp: new Date(),
-                    bookingDetails: bookingDetails,
-                    messageType: 'booking_confirmation',
                 };
                 setMessages(prevMessages => [bookingMessage, ...prevMessages]);
             } catch (error) {
@@ -86,7 +93,7 @@ const PetSitterChatScreen: React.FC = () => {
         if (!token || !user) return;
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/chat/${chatId}`, {
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${chatId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to fetch messages');
@@ -94,10 +101,9 @@ const PetSitterChatScreen: React.FC = () => {
                 // Map backend data to Message[]
                 const mapped = data.map((m: any) => ({
                     id: m.id.toString(),
-                    text: m.content,
+                    content: JSON.parse(m.content),
                     sender: m.sender_id === user.id ? 'user' : 'owner',
-                    timestamp: new Date(m.timestamp),
-                    messageType: 'text',
+                    timestamp: new Date(m.timestamp)
                 }));
                 setMessages(mapped.reverse());
             } catch (e) {
@@ -119,10 +125,9 @@ const PetSitterChatScreen: React.FC = () => {
                 setMessages(prev => [
                     {
                         id: msg.id.toString(),
-                        text: msg.content,
+                        content: JSON.parse(msg.content),
                         sender: msg.sender_id === user.id ? 'user' : 'owner',
-                        timestamp: new Date(msg.timestamp),
-                        messageType: 'text',
+                        timestamp: new Date(msg.timestamp)
                     },
                     ...prev,
                 ]);
@@ -132,8 +137,7 @@ const PetSitterChatScreen: React.FC = () => {
                     id: m.id.toString(),
                     text: m.content,
                     sender: m.sender_id === user.id ? 'user' : 'owner',
-                    timestamp: new Date(m.timestamp),
-                    messageType: 'text',
+                    timestamp: new Date(m.timestamp)
                 }));
                 setMessages(mapped.reverse());
             });
@@ -147,39 +151,57 @@ const PetSitterChatScreen: React.FC = () => {
     const handleSendMessage = () => {
         if (inputText.trim().length === 0) return;
         if (socketRef.current) {
+            const content: MessageContent = {
+                type: 'text',
+                text: inputText.trim()
+            };
             socketRef.current.emit('chat message', {
                 conversationId: chatId,
-                content: inputText.trim(),
+                content: JSON.stringify(content)
             });
         }
         setInputText('');
     };
 
-    const handleSendImage = async (imageUri: string) => {
+    const handleSendImage = async (imageUri: string, base64Data?: string) => {
         try {
-            // Log the imageUri and file object for debugging
-            const fileObj = {
-                uri: imageUri,
-                name: 'chat-image.jpg',
-                type: 'image/jpeg',
-            };
-            console.log('Uploading image with file object:', fileObj);
-            if (!imageUri || typeof imageUri !== 'string' || !imageUri.startsWith('file://')) {
-                console.warn('Image URI is invalid or not a file:// URI:', imageUri);
+            let formData = new FormData();
+            if (Platform.OS === 'web' && base64Data) {
+                // Convert base64 to Blob for web
+                const arr = base64Data.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                const blob = new Blob([u8arr], { type: mime });
+                formData.append('image', blob, 'chat-image.jpg');
+            } else {
+                // Native: use file URI
+                const fileObj = {
+                    uri: imageUri,
+                    name: 'chat-image.jpg',
+                    type: 'image/jpeg',
+                };
+                formData.append('image', fileObj as any);
             }
-            const formData = new FormData();
-            formData.append('image', fileObj as any);
-            const res = await fetch('http://localhost:3000/chat/upload', {
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`, {
                 method: 'POST',
                 body: formData,
             });
             if (!res.ok) throw new Error('Image upload failed');
             const data = await res.json();
+
             if (socketRef.current) {
+                const content: MessageContent = {
+                    type: 'image',
+                    url: data.url
+                };
                 socketRef.current.emit('chat message', {
                     conversationId: chatId,
-                    content: '',
-                    imageUrl: data.url,
+                    content: JSON.stringify(content)
                 });
             }
             setShowCamera(false);
@@ -214,65 +236,81 @@ const PetSitterChatScreen: React.FC = () => {
     };
 
     const handleTakePicture = async () => {
-        if (cameraRef.current && cameraReady) {
-            try {
-                const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 }); // Do NOT use base64: true
-                if (photo?.uri && typeof photo.uri === 'string' && photo.uri.startsWith('file://')) {
-                    handleSendImage(photo.uri);
-                } else if (photo?.base64) {
-                    // Convert base64 to file and upload
-                    const fileUri = FileSystem.cacheDirectory + 'chat-image.jpg';
-                    // Remove prefix if present
-                    let base64Data = photo.base64;
-                    if (base64Data.startsWith('data:image')) {
-                        base64Data = base64Data.split(',')[1];
-                    }
-                    await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
-                    handleSendImage(fileUri);
-                } else {
-                    console.warn('Camera did not return a file:// URI or base64:', photo);
-                    Alert.alert('Camera Error', 'Could not get a valid file URI for the photo.');
-                }
-            } catch (error) {
-                console.error('Failed to take picture:', error);
-                Alert.alert('Camera Error', error?.message || 'Failed to take picture.');
-            }
-        } else {
+        if (!cameraRef.current || !cameraReady) {
             Alert.alert('Camera not ready', 'Please wait for the camera to initialize.');
+            return;
+        }
+
+        try {
+            const photo = await cameraRef.current.takePictureAsync({
+                quality: 0.5,
+                base64: Platform.OS === 'web'
+            });
+
+            if (!photo) {
+                throw new Error('Failed to capture photo');
+            }
+
+            // For web, we use base64
+            if (Platform.OS === 'web' && photo.base64) {
+                handleSendImage('', `data:image/jpeg;base64,${photo.base64}`);
+                return;
+            }
+
+            // For native, we use the URI
+            if (photo.uri) {
+                handleSendImage(photo.uri);
+                return;
+            }
+
+            throw new Error('No valid photo data received');
+        } catch (error) {
+            console.error('Camera error:', error);
+            Alert.alert('Camera Error', 'Failed to take picture. Please try again.');
         }
     };
 
     const handleBookingResponse = (messageId: string, response: 'accepted' | 'declined') => {
         setMessages(prevMessages =>
             prevMessages.map(msg => {
-                if (msg.id === messageId && msg.bookingDetails && msg.sender === 'owner') {
+                if (msg.id === messageId && msg.content.type === 'booking_confirmation' && msg.content.bookingDetails && msg.sender === 'user') {
                     return {
                         ...msg,
-                        bookingDetails: {
-                            ...msg.bookingDetails,
-                            status: response,
+                        content: {
+                            ...msg.content,
+                            bookingDetails: {
+                                ...msg.content.bookingDetails,
+                                status: response,
+                            },
                         },
                     };
                 }
                 return msg;
             })
         );
-        const responseText = `Booking ${response} by you (sitter).`;
+
+        const responseContent: MessageContent = {
+            type: 'text',
+            text: `Booking ${response} by you (sitter).`
+        };
+
         const responseMessage: Message = {
             id: `resp-${Date.now()}`,
-            text: responseText,
+            content: responseContent,
             sender: 'user',
-            timestamp: new Date(),
-            messageType: 'text',
+            timestamp: new Date()
         };
+
         setMessages(prevMessages => [responseMessage, ...prevMessages]);
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isUserMessage = item.sender === 'user';
 
-        if (item.messageType === 'booking_confirmation' && item.bookingDetails) {
-            const details = item.bookingDetails;
+
+        // Handle booking confirmation
+        if (item.content.type === 'booking_confirmation' && item.content.bookingDetails) {
+            const details = item.content.bookingDetails;
             return (
                 <View style={[styles.messageBubble, isUserMessage ? styles.userMessage : styles.sitterMessage, styles.bookingCardContainer]}>
                     <Card style={styles.bookingCard}>
@@ -316,17 +354,18 @@ const PetSitterChatScreen: React.FC = () => {
 
         return (
             <View style={[styles.messageBubble, isUserMessage ? styles.userMessage : styles.sitterMessage]}>
-                {item.text ? (
+                {/* Text messages */}
+                {item.content.type === 'text' && item.content.text && (
                     <Text style={[styles.messageText, isUserMessage ? styles.userMessageText : styles.sitterMessageText]}>
-                        {item.text}
+                        {item.content.text}
                     </Text>
-                ) : null}
-                {item.imageUri ? (
-                    <Image source={{ uri: item.imageUri }} style={styles.chatImage} />
-                ) : null}
-                {item.imageUrl ? (
-                    <Image source={{ uri: item.imageUrl }} style={styles.chatImage} />
-                ) : null}
+                )}
+
+                {/* Image messages */}
+                {item.content.type === 'image' && item.content.url && (
+                    <Image source={{ uri: item.content.url }} style={styles.chatImage} />
+                )}
+
                 <Text style={styles.messageTimestamp}>
                     {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>

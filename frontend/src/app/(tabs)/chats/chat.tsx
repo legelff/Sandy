@@ -11,15 +11,18 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import * as FileSystem from 'expo-file-system';
 
 
+interface MessageContent {
+    type: 'text' | 'image' | 'booking_confirmation';
+    text?: string;
+    url?: string;
+    bookingDetails?: BookingConfirmationDetails;
+}
+
 interface Message {
     id: string;
-    text?: string;
-    imageUri?: string;
-    imageUrl?: string; // Add this for backend-served images
+    content: MessageContent;
     sender: 'user' | 'owner';
     timestamp: Date;
-    bookingDetails?: BookingConfirmationDetails;
-    messageType?: 'text' | 'image' | 'booking_confirmation';
 }
 
 interface BookingConfirmationDetails {
@@ -35,7 +38,7 @@ interface BookingConfirmationDetails {
     status: 'pending' | 'accepted' | 'declined';
 }
 
-const SOCKET_URL = 'http://localhost:3000'; // Adjust if needed
+const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_METRO}:3000`;
 
 const PetOwnerChatScreen: React.FC = () => {
     const router = useRouter();
@@ -59,6 +62,7 @@ const PetOwnerChatScreen: React.FC = () => {
     const cameraRef = useRef<CameraView>(null);
     const socketRef = useRef<any>(null);
     const { user, token } = useAuthStore();
+    const imageUpload = useRef<string | null>(null);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -70,12 +74,15 @@ const PetOwnerChatScreen: React.FC = () => {
         if (bookingConfirmationString && typeof bookingConfirmationString === 'string') {
             try {
                 const bookingDetails: BookingConfirmationDetails = JSON.parse(bookingConfirmationString);
+                const content: MessageContent = {
+                    type: 'booking_confirmation',
+                    bookingDetails
+                };
                 const bookingMessage: Message = {
                     id: `booking-${Date.now()}`,
+                    content: content,
                     sender: 'owner',
                     timestamp: new Date(),
-                    bookingDetails: bookingDetails,
-                    messageType: 'booking_confirmation',
                 };
                 setMessages(prevMessages => [bookingMessage, ...prevMessages]);
             } catch (error) {
@@ -89,7 +96,7 @@ const PetOwnerChatScreen: React.FC = () => {
         if (!token || !user) return;
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`http://localhost:3000/chat/${chatId}`, {
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${chatId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to fetch messages');
@@ -97,10 +104,9 @@ const PetOwnerChatScreen: React.FC = () => {
                 // Map backend data to Message[]
                 const mapped = data.map((m: any) => ({
                     id: m.id.toString(),
-                    text: m.content,
+                    content: JSON.parse(m.content),
                     sender: m.sender_id === user.id ? 'owner' : 'user',
-                    timestamp: new Date(m.timestamp),
-                    messageType: 'text',
+                    timestamp: new Date(m.timestamp)
                 }));
                 setMessages(mapped.reverse());
             } catch (e) {
@@ -122,10 +128,9 @@ const PetOwnerChatScreen: React.FC = () => {
                 setMessages(prev => [
                     {
                         id: msg.id.toString(),
-                        text: msg.content,
+                        content: JSON.parse(msg.content),
                         sender: msg.sender_id === user.id ? 'owner' : 'user',
                         timestamp: new Date(msg.timestamp),
-                        messageType: 'text',
                     },
                     ...prev,
                 ]);
@@ -133,10 +138,9 @@ const PetOwnerChatScreen: React.FC = () => {
             socketRef.current.on('chat history', (payload: any) => {
                 const mapped = payload.messages.map((m: any) => ({
                     id: m.id.toString(),
-                    text: m.content,
+                    content: JSON.parse(m.content),
                     sender: m.sender_id === user.id ? 'owner' : 'user',
                     timestamp: new Date(m.timestamp),
-                    messageType: 'text',
                 }));
                 setMessages(mapped.reverse());
             });
@@ -149,12 +153,18 @@ const PetOwnerChatScreen: React.FC = () => {
 
     const handleSendMessage = () => {
         if (inputText.trim().length === 0) return;
+
         if (socketRef.current) {
+            const content: MessageContent = {
+                type: 'text',
+                text: inputText.trim()
+            };
             socketRef.current.emit('chat message', {
                 conversationId: chatId,
-                content: inputText.trim(),
+                content: JSON.stringify(content)
             });
         }
+
         setInputText('');
     };
 
@@ -175,28 +185,37 @@ const PetOwnerChatScreen: React.FC = () => {
                 formData.append('image', blob, 'chat-image.jpg');
             } else {
                 // Native: use file URI
-                const fileObj = {
+                formData.append('image', {
                     uri: imageUri,
-                    name: 'chat-image.jpg',
                     type: 'image/jpeg',
-                };
-                formData.append('image', fileObj as any);
+                    name: 'chat-image.jpg',
+                } as any);
             }
-            const res = await fetch('http://localhost:3000/chat/upload', {
+
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`, {
                 method: 'POST',
                 body: formData,
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             });
-            if (!res.ok) throw new Error('Image upload failed');
-            const data = await res.json();
+
+            if (!response.ok) throw new Error('Image upload failed');
+
+            const data = await response.json();
             if (socketRef.current) {
+                const content: MessageContent = {
+                    type: 'image',
+                    url: data.url
+                };
                 socketRef.current.emit('chat message', {
                     conversationId: chatId,
-                    content: '',
-                    imageUrl: data.url,
+                    content: JSON.stringify(content)
                 });
             }
             setShowCamera(false);
-        } catch (err) {
+        } catch (error) {
+            console.error('Error uploading image:', error);
             Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
             setShowCamera(false);
         }
@@ -259,34 +278,42 @@ const PetOwnerChatScreen: React.FC = () => {
     const handleBookingResponse = (messageId: string, response: 'accepted' | 'declined') => {
         setMessages(prevMessages =>
             prevMessages.map(msg => {
-                if (msg.id === messageId && msg.bookingDetails && msg.sender === 'user') {
+                if (msg.id === messageId && msg.content.type === 'booking_confirmation' && msg.content.bookingDetails && msg.sender === 'user') {
                     return {
                         ...msg,
-                        bookingDetails: {
-                            ...msg.bookingDetails,
-                            status: response,
+                        content: {
+                            ...msg.content,
+                            bookingDetails: {
+                                ...msg.content.bookingDetails,
+                                status: response,
+                            },
                         },
                     };
                 }
                 return msg;
             })
         );
-        const responseText = `Booking ${response}.`;
+
+        const responseContent: MessageContent = {
+            type: 'text',
+            text: `Booking ${response} by you (owner).`
+        };
+
         const responseMessage: Message = {
             id: `resp-${Date.now()}`,
-            text: responseText,
+            content: responseContent,
             sender: 'owner',
-            timestamp: new Date(),
-            messageType: 'text',
+            timestamp: new Date()
         };
+
         setMessages(prevMessages => [responseMessage, ...prevMessages]);
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isOwnerMessage = item.sender === 'owner';
 
-        if (item.messageType === 'booking_confirmation' && item.bookingDetails) {
-            const details = item.bookingDetails;
+        if (item.content.type === 'booking_confirmation' && item.content.bookingDetails) {
+            const details = item.content.bookingDetails;
             return (
                 <View style={[styles.messageBubble, isOwnerMessage ? styles.ownerMessage : styles.sitterMessage, styles.bookingCardContainer]}>
                     <Card style={styles.bookingCard}>
@@ -303,7 +330,7 @@ const PetOwnerChatScreen: React.FC = () => {
                                 ))}
                             </View>
                             <Text style={styles.bookingText}>Dates: {details.fromDate} to {details.toDate}</Text>
-                            <Text style={styles.bookingText}>Location: {details.location === 'owner_home' ? "Owner\'s Home" : details.location === 'sitter_home' ? "Sitter\'s Home" : details.location}</Text>
+                            <Text style={styles.bookingText}>Location: {details.location === 'owner_home' ? "Owner's Home" : details.location === 'sitter_home' ? "Sitter's Home" : details.location}</Text>
                             <Text style={styles.bookingText}>Package: {details.servicePackage}</Text>
                             <Text style={styles.bookingPrice}>Total: ${details.totalPrice.toFixed(2)}</Text>
 
@@ -334,17 +361,14 @@ const PetOwnerChatScreen: React.FC = () => {
 
         return (
             <View style={[styles.messageBubble, isOwnerMessage ? styles.ownerMessage : styles.sitterMessage]}>
-                {item.text ? (
+                {item.content.type === 'text' && item.content.text && (
                     <Text style={[styles.messageText, isOwnerMessage ? styles.ownerMessageText : styles.sitterMessageText]}>
-                        {item.text}
+                        {item.content.text}
                     </Text>
-                ) : null}
-                {item.imageUri ? (
-                    <Image source={{ uri: item.imageUri }} style={styles.chatImage} />
-                ) : null}
-                {item.imageUrl ? (
-                    <Image source={{ uri: item.imageUrl }} style={styles.chatImage} />
-                ) : null}
+                )}
+                {item.content.type === 'image' && item.content.url && (
+                    <Image source={{ uri: item.content.url }} style={styles.chatImage} />
+                )}
                 <Text style={styles.messageTimestamp}>
                     {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
@@ -527,27 +551,19 @@ const styles = StyleSheet.create({
     captureButton: {
         backgroundColor: colors.white,
     },
-    bookingCardContainer: {
-        paddingVertical: 0,
-        paddingHorizontal: 0,
-        backgroundColor: 'transparent',
-        borderWidth: 0,
-    },
-    bookingCard: {
-        width: '100%',
-        elevation: 3,
-        backgroundColor: colors.white,
-    },
-    bookingTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 8,
+    bookingConfirmation: {
+        padding: 16,
+        borderRadius: 8,
+        backgroundColor: colors.background,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: colors.primary,
     },
     bookingText: {
         fontSize: 14,
-        color: colors.textDark,
-        marginBottom: 4,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: 8,
     },
     petChipsContainer_Chat: {
         flexDirection: 'row',
@@ -614,7 +630,23 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         textAlign: 'center',
         marginTop: 10,
-    }
+    },
+    bookingCardContainer: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 10,
+    },
+    bookingCard: {
+        backgroundColor: colors.white,
+        elevation: 2,
+        borderRadius: 12,
+    },
+    bookingTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        color: colors.primary,
+    },
 });
 
 export default PetOwnerChatScreen;

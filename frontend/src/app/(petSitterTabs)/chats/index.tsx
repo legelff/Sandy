@@ -22,7 +22,7 @@ const PetSitterChatsScreen: React.FC = () => {
         // Fetch chats from backend
         const fetchChats = async () => {
             try {
-                const res = await fetch('http://localhost:3000/chat', {
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!res.ok) throw new Error('Failed to fetch chats');
