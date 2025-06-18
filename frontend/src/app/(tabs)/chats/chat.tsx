@@ -61,9 +61,9 @@ const PetOwnerChatScreen: React.FC = () => {
     const navigation = useNavigation();
     const params = useLocalSearchParams();
 
-    const { chatId, userName: sitterNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
+    const { chatId, sitterName: sitterNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
         chatId: string;
-        userName: string;
+        sitterName: string;
         petName?: string;
         bookingConfirmation?: string;
     };
