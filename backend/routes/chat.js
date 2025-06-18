@@ -2,9 +2,6 @@ const express = require('express');
 const { verifyToken, JWT_SECRET } = require('../middleware/auth');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
 const pool = new Pool({
     user: process.env.DB_USER ?? 'postgres',
@@ -14,20 +11,6 @@ const pool = new Pool({
     port: process.env.DB_PORT ?? 5432,
 });
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadPath = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
-});
-const upload = multer({ storage: storage });
-
 module.exports = (io) => {
     const router = express.Router();
 
@@ -36,14 +19,12 @@ module.exports = (io) => {
         const userId = req.user.id;
 
         try {
-            const result = await pool.query(`SELECT 
-                    c.id,
-                    c.user1_id,
-                    c.user2_id,
-                    m.content AS latest_message,
+            const result = await pool.query(
+                `SELECT c.*, 
+                    m.content AS latest_message, 
                     m.timestamp AS latest_message_time,
-                    u1.name as user1_name,
-                    u2.name as user2_name
+                    u1.name AS user1_name,
+                    u2.name AS user2_name
                 FROM conversations c
                 LEFT JOIN LATERAL (
                     SELECT content, timestamp
@@ -61,10 +42,8 @@ module.exports = (io) => {
 
             res.json(result.rows);
         } catch (err) {
-            console.error('Error fetching conversations:', err);
             res.status(500).json({
-                error: 'Failed to fetch conversations',
-                details: err.message
+                error: 'Failed to fetch conversations'
             });
         }
     });
@@ -105,6 +84,27 @@ module.exports = (io) => {
         }
     });
 
+    router.get('/conversation/:id', verifyToken, async (req, res) => {
+        const conversationId = req.params.id;
+        try {
+            const result = await pool.query(
+                `SELECT c.id, c.user1_id, c.user2_id, u1.name as user1_name, u2.name as user2_name
+                 FROM conversations c
+                 LEFT JOIN users u1 ON c.user1_id = u1.id
+                 LEFT JOIN users u2 ON c.user2_id = u2.id
+                 WHERE c.id = $1`,
+                [conversationId]
+            );
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+            res.json(result.rows[0]);
+        } catch (err) {
+            console.error('Error fetching conversation metadata:', err);
+            res.status(500).json({ error: 'Failed to fetch conversation metadata', details: err.message });
+        }
+    });
+
     // Get messages from a conversation
     router.get('/:id', verifyToken, async (req, res) => {
         const conversationId = req.params.id;
@@ -128,14 +128,47 @@ module.exports = (io) => {
         }
     });
 
-    // Image upload endpoint for chat
-    router.post('/upload', upload.single('image'), (req, res) => {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+    // Send a message to a conversation
+    router.post('/:id/message', verifyToken, async (req, res) => {
+        const conversationId = req.params.id;
+        const senderId = req.user.id;
+        const { content } = req.body;
+        if (!content) {
+            return res.status(400).json({ error: 'Message content is required' });
         }
-        // Return the URL relative to the backend server
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ url: fileUrl });
+        try {
+            const insert = await pool.query(
+                `INSERT INTO messages (conversation_id, sender_id, content)
+                 VALUES ($1, $2, $3) RETURNING *`,
+                [conversationId, senderId, content]
+            );
+            const message = insert.rows[0];
+            res.status(201).json({ message });
+        } catch (err) {
+            res.status(500).json({ error: 'Failed to send message', details: err.message });
+        }
+    });
+
+    // Get the conversation between the current user and another user
+    router.get('/with/:otherUserId', verifyToken, async (req, res) => {
+        const userId1 = req.user.id;
+        const userId2 = parseInt(req.params.otherUserId, 10);
+        if (!userId2 || userId1 === userId2) {
+            return res.status(400).json({ error: 'Invalid user ID' });
+        }
+        const [a, b] = userId1 < userId2 ? [userId1, userId2] : [userId2, userId1];
+        try {
+            const result = await pool.query(
+                'SELECT * FROM conversations WHERE user1_id = $1 AND user2_id = $2',
+                [a, b]
+            );
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+            res.json(result.rows[0]);
+        } catch (err) {
+            res.status(500).json({ error: 'Database error', details: err.message });
+        }
     });
 
     // Socket.IO handlers

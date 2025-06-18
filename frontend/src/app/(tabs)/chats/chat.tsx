@@ -26,7 +26,7 @@ interface Message {
 }
 
 interface BookingConfirmationDetails {
-    chatId?: string;
+    id: string;
     sitterName?: string;
     ownerName?: string;
     petNames: string[];
@@ -48,6 +48,7 @@ const parseMessageContent = (content: string): MessageContent => {
         return parsed;
     } catch (error) {
         // If parsing fails, treat as plain text
+        console.error("Failed to parse message content, treating as text:", error);
         return {
             type: 'text',
             text: content
@@ -60,9 +61,9 @@ const PetOwnerChatScreen: React.FC = () => {
     const navigation = useNavigation();
     const params = useLocalSearchParams();
 
-    const { chatId, userName: sitterNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
+    const { chatId, sitterName: sitterNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
         chatId: string;
-        userName: string;
+        sitterName: string;
         petName?: string;
         bookingConfirmation?: string;
     };
@@ -260,14 +261,38 @@ const PetOwnerChatScreen: React.FC = () => {
         });
     };
 
-    const handleOpenBookingForm = () => {
-        router.push({
-            pathname: '/(tabs)/chats/bookingDetailsOwner',
-            params: {
-                chatId: chatId,
-                sitterName: sitterName
-            },
-        });
+    const handleOpenBookingForm = async () => {
+        if (!token || !user) return;
+        try {
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${chatId.replace(/[^\d]/g, '')}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch conversation');
+            const messages = await res.json();
+            // Fetch conversation meta (user1_id, user2_id) from a separate endpoint or from the first message if available
+            // We'll assume you have an endpoint like /chat/conversation/:id
+            const convRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/conversation/${chatId.replace(/[^\d]/g, '')}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!convRes.ok) throw new Error('Failed to fetch conversation meta');
+            const conversation = await convRes.json();
+            let sitterId;
+            if (conversation.user1_id === user.id) {
+                sitterId = conversation.user2_id;
+            } else {
+                sitterId = conversation.user1_id;
+            }
+            router.push({
+                pathname: '/(tabs)/chats/bookingDetailsOwner',
+                params: {
+                    chatId: chatId,
+                    sitterName: sitterName,
+                    sitterId: sitterId
+                },
+            });
+        } catch (err) {
+            Alert.alert('Error', 'Could not fetch conversation details.');
+        }
     };
 
     const handleOpenCamera = async () => {
@@ -335,22 +360,18 @@ const PetOwnerChatScreen: React.FC = () => {
 
         const responseContent: MessageContent = {
             type: 'text',
-            text: `Booking ${response} by you (owner).`
+            text: `Booking ${response}.`
         };
 
-        const responseMessage: Message = {
-            id: `resp-${Date.now()}`,
-            content: responseContent,
-            sender: 'owner',
-            timestamp: new Date()
-        };
+        socketRef.current.emit('chat message', {
+            conversationId: chatId,
+            content: JSON.stringify(responseContent)
+        });
 
-        setMessages(prevMessages => [responseMessage, ...prevMessages]);
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isOwnerMessage = item.sender === 'owner';
-
         if (item.content.type === 'booking_confirmation' && item.content.bookingDetails) {
             const details = item.content.bookingDetails;
             return (

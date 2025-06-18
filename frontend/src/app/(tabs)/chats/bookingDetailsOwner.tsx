@@ -5,14 +5,7 @@ import { Text, TextInput, RadioButton, Checkbox, Provider as PaperProvider, Card
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '../../../theme';
 import { CalendarDays, MapPin, Briefcase, Users, DollarSign, Dog } from 'lucide-react-native';
-
-// Dummy data for owner's pets - in a real app, this would come from a data source
-const USER_PETS = [
-    { id: '1', name: 'Buddy' },
-    { id: '2', name: 'Lucy' },
-    { id: '3', name: 'Charlie' },
-    { id: '4', name: 'Max' },
-];
+import { useAuthStore } from '../../../store/useAuthStore';
 
 const SERVICE_PACKAGES = ['Basic', 'Extended'];
 const BASE_DAILY_RATE = 30;
@@ -21,13 +14,22 @@ const PER_PET_DAILY_RATE = 5;
 
 interface BookingDetailsOwnerParams {
     chatId?: string;
-    sitterName?: string; // Name of the Pet Sitter
+    sitterName?: string;
+    sitterId?: string;
 }
 
 const BookingDetailsOwnerScreen: React.FC = () => {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { chatId, sitterName } = params as BookingDetailsOwnerParams;
+    const { chatId, sitterName, sitterId } = params as BookingDetailsOwnerParams;
+    const user = useAuthStore((state) => state.user);
+    const token = useAuthStore((state) => state.token);
+
+    // API state
+    const [userPets, setUserPets] = useState<{ id: string; name: string }[]>([]);
+    const [ownerName, setOwnerName] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Form states
     const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -39,8 +41,8 @@ const BookingDetailsOwnerScreen: React.FC = () => {
     const [totalPrice, setTotalPrice] = useState<number>(0);
 
     const selectedPetNames = useMemo(() => {
-        return USER_PETS.filter(pet => selectedPetIds.includes(pet.id)).map(pet => pet.name);
-    }, [selectedPetIds]);
+        return userPets.filter(pet => selectedPetIds.includes(pet.id)).map(pet => pet.name);
+    }, [selectedPetIds, userPets]);
 
     useEffect(() => {
         const calculatePrice = () => {
@@ -75,13 +77,41 @@ const BookingDetailsOwnerScreen: React.FC = () => {
         calculatePrice();
     }, [fromDate, toDate, servicePackage, selectedPetIds]);
 
+    useEffect(() => {
+        const fetchPetsAndOwner = async () => {
+            if (!user?.id || !token) return;
+            setLoading(true);
+            setError(null);
+            try {
+                // Fetch pets
+                const petsRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/owner?user_id=${user.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const petsData = await petsRes.json();
+                setUserPets(petsData.pets.map((pet: any) => ({ id: pet.id.toString(), name: pet.name })));
+                // Fetch owner info
+                const ownerRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/users/profile/${user.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const ownerData = await ownerRes.json();
+                setOwnerName(ownerData.user?.name || 'Me');
+            } catch (err: any) {
+                setError('Failed to fetch pets or owner info');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPetsAndOwner();
+    }, [user, token]);
+
     const togglePetSelection = (petId: string) => {
         setSelectedPetIds(prev =>
             prev.includes(petId) ? prev.filter(id => id !== petId) : [...prev, petId]
         );
     };
 
-    const handleSendRequest = () => {
+    const handleSendRequest = async () => {
+        console.log('handleSendRequest')
         if (selectedPetIds.length === 0) {
             alert("Please select at least one pet.");
             return;
@@ -90,28 +120,92 @@ const BookingDetailsOwnerScreen: React.FC = () => {
             alert("Please select valid dates.");
             return;
         }
+        if (!user || !token) {
+            alert("User not authenticated");
+            return;
+        }
+        setLoading(true);
+        setError(null);
+        try {
+            // 0. Get sitter ID
+            const sitterIdReq = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/sitter/users/${sitterId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+            });
+            if (!sitterIdReq.ok) throw new Error('Failed to fetch sitter ID');
+            const sitterData = await sitterIdReq.json();
+            const realSitterId = sitterData.sitter_id;
 
-        const bookingConfirmationDetails = {
-            chatId,
-            sitterName, // Sitter's name to whom the request is being made
-            petNames: selectedPetNames,
-            ownerName: "Pet Owner (Me)", // Placeholder for actual owner name from auth state
-            fromDate,
-            toDate,
-            location: locationOption === 'custom' ? customLocation : locationOption,
-            servicePackage,
-            totalPrice,
-            status: 'pending',
-        };
-        console.log('Sending Booking Request:', bookingConfirmationDetails);
-        router.push({
-            pathname: `/(tabs)/chats/chat`, // Navigate to Pet Owner's chat
-            params: {
-                chatId, bookingConfirmation: JSON.stringify(bookingConfirmationDetails), // Pass sitterName too for title
-                sitterName: sitterName
-            },
-        });
+            // 1. Create the booking
+            const bookingRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/booking`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    sitter_id: realSitterId,
+                    pet_ids: selectedPetIds,
+                    start_datetime: fromDate,
+                    end_datetime: toDate,
+                    status: 'requested',
+                    service_tier: servicePackage
+                })
+            });
+            if (!bookingRes.ok) throw new Error('Failed to create booking');
+            const bookingData = await bookingRes.json();
+            const booking = bookingData.booking;
+            // 2.get conversation with sitter
+            const chatRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/with/${sitterId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+            });
+            if (!chatRes.ok) throw new Error('Failed to create chat');
+            const conversation = await chatRes.json();
+            // 3. Send booking_confirmation message with booking id
+            const bookingRequestMessage = {
+                type: 'booking_confirmation',
+                bookingDetails: {
+                    id: booking.id,
+                    sitterName: sitterName,
+                    ownerName: ownerName,
+                    petNames: selectedPetNames,
+                    fromDate,
+                    toDate,
+                    location: locationOption === 'custom' ? customLocation : locationOption,
+                    servicePackage,
+                    totalPrice,
+                    status: 'pending',
+                }
+            };
+            await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${conversation.id}/message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    content: JSON.stringify(bookingRequestMessage)
+                })
+            });
+            // 4. Navigate to chat
+            router.back();
+        } catch (err: any) {
+            setError(err.message || 'Error sending booking request');
+        } finally {
+            setLoading(false);
+        }
     };
+
+    if (loading) {
+        return <Text style={{ margin: 20 }}>Loading...</Text>;
+    }
+    if (error) {
+        return <Text style={{ color: 'red', margin: 20 }}>{error}</Text>;
+    }
 
     return (
         <PaperProvider>
@@ -135,7 +229,7 @@ const BookingDetailsOwnerScreen: React.FC = () => {
                                         <Text style={styles.cardTitleText}>Select Your Pet(s)</Text>
                                     </View>
                                 </Title>
-                                {USER_PETS.map(pet => (
+                                {userPets.map(pet => (
                                     <Checkbox.Item
                                         key={pet.id}
                                         label={pet.name}
@@ -313,4 +407,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default BookingDetailsOwnerScreen; 
+export default BookingDetailsOwnerScreen;
