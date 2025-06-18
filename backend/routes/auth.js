@@ -233,7 +233,7 @@ router.post('/register/owner', async (req, res) => {
                 for (const pet of pets) {
                     // Validate required pet fields
                     if (!pet.name || !pet.species || pet.age === undefined || pet.age === null ||
-                        !pet.breed || !pet.vaccinations || pet.sterilized === undefined || pet.sterilized === null) {
+                        !pet.breed || pet.vaccinations === undefined || pet.vaccinations === null || pet.sterilized === undefined || pet.sterilized === null) {
                         await client.query('ROLLBACK');
                         return res.status(400).json({
                             status: 400,

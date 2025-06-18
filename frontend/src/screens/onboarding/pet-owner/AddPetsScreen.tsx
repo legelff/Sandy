@@ -26,6 +26,15 @@ const AddPetsScreen = () => {
     };
 
     const handleNext = async () => {
+        // Validate all pets before registration
+        const incompletePet = pets.find(pet =>
+            !pet.name || !pet.species || !pet.age || !pet.breed ||
+            pet.vaccinations === undefined || pet.sterilized === undefined
+        );
+        if (incompletePet) {
+            Alert.alert('Pet Incomplete', 'All pets must have Name, Species, Age, Breed, Vaccinations, and Sterilized filled in before you can continue.');
+            return;
+        }
         const allOnboardingData = getAllData();
         // console.log('--- All Collected Onboarding Data (Pet Owner - Preparing for API) ---');
         // console.log('Registration Data:', {
@@ -97,9 +106,8 @@ const AddPetsScreen = () => {
             // role is implicitly 'owner' by using this endpoint
         };
 
-        // console.log('--- Payload for /auth/register/owner ---');
-        // console.log(JSON.stringify(registrationPayload, null, 2));
-        // console.log('-----------------------------------------');
+        // Log the payload for debugging
+        console.log('Registration payload:', JSON.stringify(registrationPayload, null, 2));
 
         try {
             const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/auth/register/owner`, {

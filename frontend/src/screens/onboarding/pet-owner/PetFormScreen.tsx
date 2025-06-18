@@ -264,29 +264,23 @@ const PetFormScreen = () => {
     };
 
     const handleSubmit = () => {
-        if (!formData.name || !formData.species) {
-            Alert.alert('Missing Information', 'Please fill in at least the pet\'s name and species.');
+        // Validate required fields for pet
+        if (!formData.name || !formData.species || !formData.age || !formData.breed || typeof formData.vaccinations !== 'boolean' || typeof formData.sterilized !== 'boolean') {
+            Alert.alert('Missing Information', 'Please fill in all required fields: Name, Species, Age, Breed, Vaccinations, and Sterilized.');
             return;
         }
-
         const petData: Pet = {
             ...formData,
             id: isEditing && editingPetId ? editingPetId : `pet_${Date.now()}`,
         };
-
         if (isEditing) {
             updatePet(petData);
-            // console.log('Pet updated in store:', petData);
         } else {
             addPet(petData);
-            // console.log('Pet added to store (first pet flow):', petData);
         }
-
         if (params.fromAddPets) {
-            // console.log('Navigating from PetFormScreen back to /onboarding/pet-owner/add-pets (replace)');
             router.replace('/onboarding/pet-owner/add-pets');
         } else {
-            // console.log('Navigating from PetFormScreen to /onboarding/pet-owner/add-pets (push)');
             router.push('/onboarding/pet-owner/add-pets');
         }
     };

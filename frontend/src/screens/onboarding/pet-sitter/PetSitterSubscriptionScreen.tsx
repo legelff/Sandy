@@ -30,13 +30,13 @@ const SITTER_SUBSCRIPTION_OPTIONS = [
     {
         id: 'sitterBasic',
         name: 'Basic Sitter',
-        price: '$3/mo', // Placeholder price
+        price: '$0/mo', // Placeholder price
         features: SITTER_BASIC_PLAN_FEATURES,
     },
     {
         id: 'sitterPartTime',
         name: 'Part-Time Sitter',
-        price: '$7/mo', // Placeholder price
+        price: 'Get Paid', // Placeholder price
         features: [
             { name: FEATURE_NAME_SITTER.allBasicSitter, included: true },
             { name: FEATURE_NAME_SITTER.adFree, included: true }, // Part-Time is Ad-free

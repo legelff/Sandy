@@ -34,13 +34,13 @@ const SUBSCRIPTION_OPTIONS = [
     {
         id: 'basic',
         name: 'Basic',
-        price: '$5/mo',
+        price: '$0/mo',
         features: BASIC_PLAN_FEATURES,
     },
     {
         id: 'upgraded',
         name: 'Upgraded Basic',
-        price: '$10/mo',
+        price: '$5/mo',
         features: [
             { name: FEATURE_NAME.allBasic, included: true },
             { name: FEATURE_NAME.adFree, included: true }, // Upgraded is Ad-free
@@ -49,7 +49,7 @@ const SUBSCRIPTION_OPTIONS = [
     {
         id: 'premium',
         name: 'Premium',
-        price: '$15/mo',
+        price: '$9/mo',
         features: [
             { name: FEATURE_NAME.petLimitPremium, included: true },
             { name: FEATURE_NAME.speciesPremium, included: true },
