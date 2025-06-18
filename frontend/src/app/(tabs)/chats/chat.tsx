@@ -260,14 +260,38 @@ const PetOwnerChatScreen: React.FC = () => {
         });
     };
 
-    const handleOpenBookingForm = () => {
-        router.push({
-            pathname: '/(tabs)/chats/bookingDetailsOwner',
-            params: {
-                chatId: chatId,
-                sitterName: sitterName
-            },
-        });
+    const handleOpenBookingForm = async () => {
+        if (!token || !user) return;
+        try {
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${chatId.replace(/[^\d]/g, '')}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch conversation');
+            const messages = await res.json();
+            // Fetch conversation meta (user1_id, user2_id) from a separate endpoint or from the first message if available
+            // We'll assume you have an endpoint like /chat/conversation/:id
+            const convRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/conversation/${chatId.replace(/[^\d]/g, '')}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!convRes.ok) throw new Error('Failed to fetch conversation meta');
+            const conversation = await convRes.json();
+            let sitterId;
+            if (conversation.user1_id === user.id) {
+                sitterId = conversation.user2_id;
+            } else {
+                sitterId = conversation.user1_id;
+            }
+            router.push({
+                pathname: '/(tabs)/chats/bookingDetailsOwner',
+                params: {
+                    chatId: chatId,
+                    sitterName: sitterName,
+                    sitterId: sitterId
+                },
+            });
+        } catch (err) {
+            Alert.alert('Error', 'Could not fetch conversation details.');
+        }
     };
 
     const handleOpenCamera = async () => {
@@ -351,8 +375,8 @@ const PetOwnerChatScreen: React.FC = () => {
     const renderMessage = ({ item }: { item: Message }) => {
         const isOwnerMessage = item.sender === 'owner';
 
-        if (item.content.type === 'booking_confirmation' && item.content.bookingDetails) {
-            const details = item.content.bookingDetails;
+        if (item.content.type === 'booking_confirmation' && item.content) {
+            const details = item.content;
             return (
                 <View style={[styles.messageBubble, isOwnerMessage ? styles.ownerMessage : styles.sitterMessage, styles.bookingCardContainer]}>
                     <Card style={styles.bookingCard}>
