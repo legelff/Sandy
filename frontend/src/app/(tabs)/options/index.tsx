@@ -18,7 +18,7 @@ const OptionsScreen: React.FC = () => {
         try {
             console.log('User in OptionsScreen:', user);
             const userId = user.id;
-            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/options?user_id=${user.id}&street=Lange%20Ridderstraat%2044&city=Mechelen&postcode=2800`);
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/options?user_id=${userId}&street=Lange%20Ridderstraat%2044&city=Mechelen&postcode=2800`);
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Fetch failed');
 
