@@ -39,6 +39,21 @@ interface BookingConfirmationDetails {
 
 const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_METRO}:3000`;
 
+// Helper function to safely parse message content
+const parseMessageContent = (content: string): MessageContent => {
+    try {
+        // Try to parse as JSON first
+        const parsed = JSON.parse(content);
+        return parsed;
+    } catch (error) {
+        // If parsing fails, treat as plain text
+        return {
+            type: 'text',
+            text: content
+        };
+    }
+};
+
 const PetSitterChatScreen: React.FC = () => {
     const router = useRouter();
     const navigation = useNavigation();
@@ -100,7 +115,7 @@ const PetSitterChatScreen: React.FC = () => {
                 // Map backend data to Message[]
                 const mapped = data.map((m: any) => ({
                     id: m.id.toString(),
-                    content: JSON.parse(m.content),
+                    content: parseMessageContent(m.content),
                     sender: m.sender_id === user.id ? 'user' : 'owner',
                     timestamp: new Date(m.timestamp)
                 }));
@@ -124,16 +139,17 @@ const PetSitterChatScreen: React.FC = () => {
                 setMessages(prev => [
                     {
                         id: msg.id.toString(),
-                        content: JSON.parse(msg.content),
+                        content: parseMessageContent(msg.content),
                         sender: msg.sender_id === user.id ? 'user' : 'owner',
                         timestamp: new Date(msg.timestamp)
                     },
                     ...prev,
                 ]);
-            }); socketRef.current.on('chat history', (payload: any) => {
+            });
+            socketRef.current.on('chat history', (payload: any) => {
                 const mapped = payload.messages.map((m: any) => ({
                     id: m.id.toString(),
-                    content: JSON.parse(m.content),
+                    content: parseMessageContent(m.content),
                     sender: m.sender_id === user.id ? 'user' : 'owner',
                     timestamp: new Date(m.timestamp)
                 }));

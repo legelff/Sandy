@@ -3,26 +3,26 @@
 -- Users (already provided, assuming IDs 1-20)
 INSERT INTO users (name, email, password, street, city, postcode, role, latitude, longitude)
 VALUES
-('Alice Smith', 'alice.smith@example.com', 'pass123', '123 Oak Ave', 'Springfield', '12345', 'owner', 34.0522, -118.2437),
-('Bob Johnson', 'bob.johnson@example.com', 'pass123', '45 Pine St', 'Rivertown', '67890', 'sitter', 40.7128, -74.0060),
-('Charlie Brown', 'charlie.brown@example.com', 'pass123', '789 Elm Rd', 'Metropolis', '54321', 'owner', 39.9526, -75.1652),
-('Diana Prince', 'diana.prince@example.com', 'pass123', '101 Maple Ln', 'Gotham', '98765', 'sitter', 34.0522, -118.2437),
-('Ethan Hunt', 'ethan.hunt@example.com', 'pass123', '202 Cedar Blvd', 'Star City', '11223', 'owner', 40.7128, -74.0060),
-('Fiona Glenn', 'fiona.glenn@example.com', 'pass123', '303 Birch Ct', 'Central City', '44556', 'sitter', 39.9526, -75.1652),
-('George Costanza', 'george.c@example.com', 'pass123', '404 Willow Dr', 'Seinfeld', '77889', 'owner', 34.0522, -118.2437),
-('Hannah Montana', 'hannah.m@example.com', 'pass123', '505 Poplar Pl', 'Nashville', '33445', 'sitter', 40.7128, -74.0060),
-('Isaac Newton', 'isaac.n@example.com', 'pass123', '606 Apple Way', 'Cambridge', '00112', 'owner', 39.9526, -75.1652),
-('Jessica Rabbit', 'jessica.r@example.com', 'pass123', '707 Toon St', 'Hollywood', '90210', 'sitter', 34.0522, -118.2437),
-('Kevin Hart', 'kevin.h@example.com', 'pass123', '808 Comedy Ln', 'Philadelphia', '19101', 'owner', 40.7128, -74.0060),
-('Laura Croft', 'laura.c@example.com', 'pass123', '909 Tomb Rd', 'London', 'SW1A 0AA', 'sitter', 39.9526, -75.1652),
-('Mike Tyson', 'mike.t@example.com', 'pass123', '111 Punch Blvd', 'Las Vegas', '89101', 'owner', 34.0522, -118.2437),
-('Nancy Drew', 'nancy.d@example.com', 'pass123', '222 Mystery Ave', 'River Heights', '00001', 'sitter', 40.7128, -74.0060),
-('Oliver Queen', 'oliver.q@example.com', 'pass123', '333 Arrow St', 'Star City', '11223', 'owner', 39.9526, -75.1652),
-('Penny Lane', 'penny.l@example.com', 'pass123', '444 Music Rd', 'Liverpool', 'L1 8JQ', 'sitter', 34.0522, -118.2437),
-('Quinn Fabray', 'quinn.f@example.com', 'pass123', '555 Glee Club', 'Lima', '45801', 'owner', 40.7128, -74.0060),
-('Rachel Green', 'rachel.g@example.com', 'pass123', '666 Central Perk', 'New York', '10001', 'sitter', 39.9526, -75.1652),
-('Steve Rogers', 'steve.r@example.com', 'pass123', '777 Shield Ave', 'Brooklyn', '11201', 'owner', 34.0522, -118.2437),
-('Tina Belcher', 'tina.b@example.com', 'pass123', '888 Burger St', 'Seymour''s Bay', '03030', 'sitter', 40.7128, -74.0060);
+('Alice Smith', 'alice.smith@example.com', 'pass123', '123 Oak Avenue', 'Los Angeles', '90012', 'owner', 34.0522, -118.2437),
+('Bob Johnson', 'bob.johnson@example.com', 'pass123', '456 Pine Street', 'New York', '10001', 'sitter', 40.7128, -74.0060),
+('Charlie Brown', 'charlie.brown@example.com', 'pass123', '789 Elm Road', 'Philadelphia', '19102', 'owner', 39.9526, -75.1652),
+('Diana Prince', 'diana.prince@example.com', 'pass123', '101 Maple Lane', 'Chicago', '60601', 'sitter', 41.8781, -87.6298),
+('Ethan Hunt', 'ethan.hunt@example.com', 'pass123', '202 Cedar Boulevard', 'Houston', '77001', 'owner', 29.7604, -95.3698),
+('Fiona Glenn', 'fiona.glenn@example.com', 'pass123', '303 Birch Court', 'Phoenix', '85001', 'sitter', 33.4484, -112.0740),
+('George Costanza', 'george.c@example.com', 'pass123', '404 Willow Drive', 'San Antonio', '78201', 'owner', 29.4241, -98.4936),
+('Hannah Montana', 'hannah.m@example.com', 'pass123', '505 Poplar Place', 'San Diego', '92101', 'sitter', 32.7157, -117.1611),
+('Isaac Newton', 'isaac.n@example.com', 'pass123', '606 Apple Way', 'Dallas', '75201', 'owner', 32.7767, -96.7970),
+('Jessica Rabbit', 'jessica.r@example.com', 'pass123', '707 Toon Street', 'San Jose', '95101', 'sitter', 37.3382, -121.8863),
+('Kevin Hart', 'kevin.h@example.com', 'pass123', '808 Comedy Lane', 'Austin', '73301', 'owner', 30.2672, -97.7431),
+('Laura Croft', 'laura.c@example.com', 'pass123', '909 Tomb Road', 'Jacksonville', '32099', 'sitter', 30.3322, -81.6557),
+('Mike Tyson', 'mike.t@example.com', 'pass123', '111 Punch Boulevard', 'Fort Worth', '76101', 'owner', 32.7555, -97.3308),
+('Nancy Drew', 'nancy.d@example.com', 'pass123', '222 Mystery Avenue', 'Columbus', '43201', 'sitter', 39.9612, -82.9988),
+('Oliver Queen', 'oliver.q@example.com', 'pass123', '333 Arrow Street', 'Charlotte', '28201', 'owner', 35.2271, -80.8431),
+('Penny Lane', 'penny.l@example.com', 'pass123', '444 Music Road', 'San Francisco', '94101', 'sitter', 37.7749, -122.4194),
+('Quinn Fabray', 'quinn.f@example.com', 'pass123', '555 Glee Club Drive', 'Indianapolis', '46201', 'owner', 39.7684, -86.1581),
+('Rachel Green', 'rachel.g@example.com', 'pass123', '666 Central Perk Street', 'Seattle', '98101', 'sitter', 47.6062, -122.3321),
+('Steve Rogers', 'steve.r@example.com', 'pass123', '777 Shield Avenue', 'Denver', '80201', 'owner', 39.7392, -104.9903),
+('Tina Belcher', 'tina.b@example.com', 'pass123', '888 Burger Street', 'Washington', '20001', 'sitter', 38.9072, -77.0369);
 
 -- Species
 INSERT INTO species (name) VALUES
@@ -79,9 +79,9 @@ INSERT INTO pets (owner_id, name, age, breed, personality, favorite_activities_a
 
 -- Bookings (Alice Smith as owner, Bob Johnson as sitter)
 INSERT INTO bookings (owner_id, sitter_id, start_datetime, end_datetime, total_price, status, city, street, postcode, service_tier) VALUES
-(1, 1, '2025-07-01 09:00:00+02', '2025-07-05 17:00:00+02', 200.00, 'Confirmed', 'Springfield', '123 Oak Ave', '12345', 'Premium'), -- Alice (owner_id 1) and Bob (sitter_id 1)
-(3, 2, '2025-07-10 10:00:00+02', '2025-07-12 16:00:00+02', 120.00, 'Pending', 'Metropolis', '789 Elm Rd', '54321', 'Basic'), -- Charlie (owner_id 3) and Diana (sitter_id 2)
-(1, 1, '2025-08-01 10:00:00+02', '2025-08-03 18:00:00+02', 150.00, 'Completed', 'Springfield', '123 Oak Ave', '12345', 'Basic'); -- Alice (owner_id 1) and Bob (sitter_id 1)
+(1, 1, '2025-07-01 09:00:00+02', '2025-07-05 17:00:00+02', 200.00, 'Confirmed', 'Los Angeles', '123 Oak Avenue', '90012', 'Premium'), -- Alice (owner_id 1) and Bob (sitter_id 1)
+(3, 2, '2025-07-10 10:00:00+02', '2025-07-12 16:00:00+02', 120.00, 'Pending', 'Philadelphia', '789 Elm Road', '19102', 'Basic'), -- Charlie (owner_id 3) and Diana (sitter_id 2)
+(1, 1, '2025-08-01 10:00:00+02', '2025-08-03 18:00:00+02', 150.00, 'Completed', 'Los Angeles', '123 Oak Avenue', '90012', 'Basic'); -- Alice (owner_id 1) and Bob (sitter_id 1)
 
 -- Booking_Pets (linking pets to bookings)
 INSERT INTO booking_pets (booking_id, pet_id) VALUES
@@ -131,13 +131,97 @@ INSERT INTO pet_reviews (pet_id, rating, comment, booking_id) VALUES
 (2, 4, 'Whiskers was a bit shy at first but warmed up quickly.', 1), -- Bob reviewing Whiskers from Booking 1
 (1, 5, 'Buddy is always a pleasure to care for.', 3); -- Bob reviewing Buddy from Booking 3
 
--- Sitter_Availability (for Bob Johnson)
+-- Sitter_Availability (for all sitters - full week availability)
 INSERT INTO sitter_availability (sitter_id, day_of_week, start_time, end_time) VALUES
-(1, 'Monday', '09:00:00', '17:00:00'),
-(1, 'Tuesday', '09:00:00', '17:00:00'),
-(1, 'Wednesday', '09:00:00', '17:00:00'),
-(2, 'Friday', '10:00:00', '18:00:00'),
-(2, 'Saturday', '10:00:00', '14:00:00');
+-- Bob Johnson (sitter_id: 1) - Full week availability
+(1, 'Monday', '08:00:00', '18:00:00'),
+(1, 'Tuesday', '08:00:00', '18:00:00'),
+(1, 'Wednesday', '08:00:00', '18:00:00'),
+(1, 'Thursday', '08:00:00', '18:00:00'),
+(1, 'Friday', '08:00:00', '18:00:00'),
+(1, 'Saturday', '09:00:00', '17:00:00'),
+(1, 'Sunday', '09:00:00', '17:00:00'),
+
+-- Diana Prince (sitter_id: 2) - Full week availability
+(2, 'Monday', '09:00:00', '17:00:00'),
+(2, 'Tuesday', '09:00:00', '17:00:00'),
+(2, 'Wednesday', '09:00:00', '17:00:00'),
+(2, 'Thursday', '09:00:00', '17:00:00'),
+(2, 'Friday', '09:00:00', '17:00:00'),
+(2, 'Saturday', '10:00:00', '16:00:00'),
+(2, 'Sunday', '10:00:00', '16:00:00'),
+
+-- Fiona Glenn (sitter_id: 3) - Full week availability
+(3, 'Monday', '07:00:00', '19:00:00'),
+(3, 'Tuesday', '07:00:00', '19:00:00'),
+(3, 'Wednesday', '07:00:00', '19:00:00'),
+(3, 'Thursday', '07:00:00', '19:00:00'),
+(3, 'Friday', '07:00:00', '19:00:00'),
+(3, 'Saturday', '08:00:00', '18:00:00'),
+(3, 'Sunday', '08:00:00', '18:00:00'),
+
+-- Hannah Montana (sitter_id: 4) - Full week availability
+(4, 'Monday', '08:00:00', '16:00:00'),
+(4, 'Tuesday', '08:00:00', '16:00:00'),
+(4, 'Wednesday', '08:00:00', '16:00:00'),
+(4, 'Thursday', '08:00:00', '16:00:00'),
+(4, 'Friday', '08:00:00', '16:00:00'),
+(4, 'Saturday', '09:00:00', '15:00:00'),
+(4, 'Sunday', '09:00:00', '15:00:00'),
+
+-- Jessica Rabbit (sitter_id: 5) - Full week availability
+(5, 'Monday', '06:00:00', '20:00:00'),
+(5, 'Tuesday', '06:00:00', '20:00:00'),
+(5, 'Wednesday', '06:00:00', '20:00:00'),
+(5, 'Thursday', '06:00:00', '20:00:00'),
+(5, 'Friday', '06:00:00', '20:00:00'),
+(5, 'Saturday', '07:00:00', '19:00:00'),
+(5, 'Sunday', '07:00:00', '19:00:00'),
+
+-- Laura Croft (sitter_id: 6) - Full week availability
+(6, 'Monday', '09:00:00', '17:00:00'),
+(6, 'Tuesday', '09:00:00', '17:00:00'),
+(6, 'Wednesday', '09:00:00', '17:00:00'),
+(6, 'Thursday', '09:00:00', '17:00:00'),
+(6, 'Friday', '09:00:00', '17:00:00'),
+(6, 'Saturday', '10:00:00', '16:00:00'),
+(6, 'Sunday', '10:00:00', '16:00:00'),
+
+-- Nancy Drew (sitter_id: 7) - Full week availability
+(7, 'Monday', '08:00:00', '18:00:00'),
+(7, 'Tuesday', '08:00:00', '18:00:00'),
+(7, 'Wednesday', '08:00:00', '18:00:00'),
+(7, 'Thursday', '08:00:00', '18:00:00'),
+(7, 'Friday', '08:00:00', '18:00:00'),
+(7, 'Saturday', '09:00:00', '17:00:00'),
+(7, 'Sunday', '09:00:00', '17:00:00'),
+
+-- Penny Lane (sitter_id: 8) - Full week availability
+(8, 'Monday', '10:00:00', '16:00:00'),
+(8, 'Tuesday', '10:00:00', '16:00:00'),
+(8, 'Wednesday', '10:00:00', '16:00:00'),
+(8, 'Thursday', '10:00:00', '16:00:00'),
+(8, 'Friday', '10:00:00', '16:00:00'),
+(8, 'Saturday', '11:00:00', '15:00:00'),
+(8, 'Sunday', '11:00:00', '15:00:00'),
+
+-- Rachel Green (sitter_id: 9) - Full week availability
+(9, 'Monday', '07:00:00', '19:00:00'),
+(9, 'Tuesday', '07:00:00', '19:00:00'),
+(9, 'Wednesday', '07:00:00', '19:00:00'),
+(9, 'Thursday', '07:00:00', '19:00:00'),
+(9, 'Friday', '07:00:00', '19:00:00'),
+(9, 'Saturday', '08:00:00', '18:00:00'),
+(9, 'Sunday', '08:00:00', '18:00:00'),
+
+-- Tina Belcher (sitter_id: 10) - Full week availability
+(10, 'Monday', '09:00:00', '17:00:00'),
+(10, 'Tuesday', '09:00:00', '17:00:00'),
+(10, 'Wednesday', '09:00:00', '17:00:00'),
+(10, 'Thursday', '09:00:00', '17:00:00'),
+(10, 'Friday', '09:00:00', '17:00:00'),
+(10, 'Saturday', '10:00:00', '16:00:00'),
+(10, 'Sunday', '10:00:00', '16:00:00');
 
 -- Sitter_Photos (for Bob Johnson)
 INSERT INTO sitter_photos (url, sitter_id) VALUES

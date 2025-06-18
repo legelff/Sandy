@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
 import LikedSitterCard, { LikedSitter } from '../../../components/options/LikedSitterCard'; // Adjusted path
 import { colors } from '../../../theme'; // Adjusted path
-import { useRouter } from 'expo-router'; // Added useRouter
+import { useRouter, useFocusEffect } from 'expo-router'; // Added useFocusEffect
 
 import { useAuthStore } from '../../../store/useAuthStore';
 
@@ -14,7 +14,6 @@ const OptionsScreen: React.FC = () => {
     const user = useAuthStore((state) => state.user);
     const [likedSitters, setLikedSitters] = useState<LikedSitter[]>([]);
 
-    useEffect(() => {
     const fetchLikedSitters = async () => {
         try {
             console.log('User in OptionsScreen:', user);
@@ -25,7 +24,7 @@ const OptionsScreen: React.FC = () => {
 
             const mapped: LikedSitter[] = data.saved.map((b: any) => ({
                 id: b.save_id.toString(),
-                 sitterUserId: b.sitter_user_id.toString(),
+                sitterUserId: b.sitter_user_id.toString(),
                 sitterName: b.sitter_name,
                 distance: `${b.distance} km away`,
                 rating: b.average_rating,
@@ -43,8 +42,14 @@ const OptionsScreen: React.FC = () => {
         }
     };
 
-    fetchLikedSitters();
-}, []);
+    // Refresh data every time the tab is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                fetchLikedSitters();
+            }
+        }, [user])
+    );
 
     const handleDeleteSitter = (idToDelete: string) => {
         setLikedSitters(prevSitters => prevSitters.filter(sitter => sitter.id !== idToDelete));
@@ -55,7 +60,7 @@ const OptionsScreen: React.FC = () => {
         router.push({
             pathname: '/(tabs)/options/details',
             params: { sitterData: JSON.stringify(sitter) },
-            
+
         });
         console.log('Pressed sitter card:', sitter);
     };
