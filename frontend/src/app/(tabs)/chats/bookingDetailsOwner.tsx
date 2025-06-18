@@ -155,26 +155,24 @@ const BookingDetailsOwnerScreen: React.FC = () => {
             if (!bookingRes.ok) throw new Error('Failed to create booking');
             const bookingData = await bookingRes.json();
             const booking = bookingData.booking;
-            // 2. Create/get conversation with sitter
-            const chatRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat`, {
-                method: 'POST',
+            // 2.get conversation with sitter
+            const chatRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/with/${sitterId}`, {
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    userId: sitterId, // use sitterId from params
-                })
             });
             if (!chatRes.ok) throw new Error('Failed to create chat');
             const conversation = await chatRes.json();
             // 3. Send booking_confirmation message with booking id
             const bookingRequestMessage = {
                 type: 'booking_confirmation',
-                booking: {
+                bookingDetails: {
                     id: booking.id,
-                    petNames: selectedPetNames,
+                    sitterName: sitterName,
                     ownerName: ownerName,
+                    petNames: selectedPetNames,
                     fromDate,
                     toDate,
                     location: locationOption === 'custom' ? customLocation : locationOption,
@@ -194,10 +192,7 @@ const BookingDetailsOwnerScreen: React.FC = () => {
                 })
             });
             // 4. Navigate to chat
-            router.push({
-                pathname: '/(tabs)/chats/chat',
-                params: { chatId: conversation.id, userName: sitterName }
-            });
+            router.back();
         } catch (err: any) {
             setError(err.message || 'Error sending booking request');
         } finally {

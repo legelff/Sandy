@@ -26,7 +26,7 @@ interface Message {
 }
 
 interface BookingConfirmationDetails {
-    chatId?: string;
+    id: string;
     sitterName?: string;
     ownerName?: string;
     petNames: string[];
@@ -48,6 +48,7 @@ const parseMessageContent = (content: string): MessageContent => {
         return parsed;
     } catch (error) {
         // If parsing fails, treat as plain text
+        console.error("Failed to parse message content, treating as text:", error);
         return {
             type: 'text',
             text: content
@@ -359,24 +360,20 @@ const PetOwnerChatScreen: React.FC = () => {
 
         const responseContent: MessageContent = {
             type: 'text',
-            text: `Booking ${response} by you (owner).`
+            text: `Booking ${response}.`
         };
 
-        const responseMessage: Message = {
-            id: `resp-${Date.now()}`,
-            content: responseContent,
-            sender: 'owner',
-            timestamp: new Date()
-        };
+        socketRef.current.emit('chat message', {
+            conversationId: chatId,
+            content: JSON.stringify(responseContent)
+        });
 
-        setMessages(prevMessages => [responseMessage, ...prevMessages]);
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isOwnerMessage = item.sender === 'owner';
-
-        if (item.content.type === 'booking_confirmation' && item.content) {
-            const details = item.content;
+        if (item.content.type === 'booking_confirmation' && item.content.bookingDetails) {
+            const details = item.content.bookingDetails;
             return (
                 <View style={[styles.messageBubble, isOwnerMessage ? styles.ownerMessage : styles.sitterMessage, styles.bookingCardContainer]}>
                     <Card style={styles.bookingCard}>

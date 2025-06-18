@@ -328,17 +328,13 @@ const PetSitterChatScreen: React.FC = () => {
 
         const responseContent: MessageContent = {
             type: 'text',
-            text: `Booking ${response} by you (sitter).`
+            text: `Booking ${response}.`
         };
 
-        const responseMessage: Message = {
-            id: `resp-${Date.now()}`,
-            content: responseContent,
-            sender: 'user',
-            timestamp: new Date()
-        };
-
-        setMessages(prevMessages => [responseMessage, ...prevMessages]);
+        socketRef.current.emit('chat message', {
+            conversationId: chatId,
+            content: JSON.stringify(responseContent)
+        });
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
