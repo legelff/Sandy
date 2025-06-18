@@ -237,7 +237,7 @@ router.post('/respond', async (req, res) => {
             // Check if conversation exists
             const convRes = await pool.query(
                 'SELECT id FROM conversations WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)',
-                [ownerId, userSitterId]
+                ownerId < userSitterId ? [ownerId, userSitterId] : [userSitterId, ownerId]
             );
             if (convRes.rows.length > 0) {
                 conversationId = convRes.rows[0].id;

@@ -26,7 +26,9 @@ const ChatsListScreen: React.FC = () => {
                 const mappedChats = data.map((c: any) => ({
                     id: c.id.toString(),
                     ownerName: c.user1_id === user.id ? c.user2_name : c.user1_name,
+                    sitterName: c.user1_id === user.id ? c.user1_name : c.user2_name,
                     petName: c.pet_name || '', // Adjust if you have pet info
+                    isOwner: true,
                 }));
                 setChats(mappedChats);
             } catch (e) {
