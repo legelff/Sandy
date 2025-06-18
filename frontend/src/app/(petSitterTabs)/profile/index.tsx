@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Title, Divider } from 'react-native-paper';
 import { UserCircle, MapPin, Mail, Edit3, ShieldCheck, Award, LogOut } from 'lucide-react-native'; // Added ShieldCheck, Award for sitter specific info, LogOut for logout
 import { colors } from '../../../theme';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../../store/useAuthStore';
 
 // Placeholder data for pet sitter user
 const DUMMY_SITTER_USER = {
@@ -26,7 +27,36 @@ const DUMMY_SITTER_USER = {
  */
 const PetSitterProfileScreen: React.FC = () => {
     const router = useRouter();
+    const { user, token } = useAuthStore();
     const [sitter, setSitter] = useState(DUMMY_SITTER_USER);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!user || !token) return;
+            try {
+                setLoading(true);
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/users/profile/${user.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch profile');
+                const data = await res.json();
+                setSitter(prev => ({
+                    ...prev,
+                    name: data.name || prev.name,
+                    email: data.email || prev.email,
+                    address: data.street || prev.address,
+                    city: data.city || prev.city,
+                    postcode: data.postcode || prev.postcode,
+                }));
+            } catch (e) {
+                // If error, keep placeholder data
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfile();
+    }, [user, token]);
 
     const handleEditProfile = () => {
         router.push({
@@ -41,6 +71,19 @@ const PetSitterProfileScreen: React.FC = () => {
         router.replace('/login'); // Or your login route
         console.log("User logged out");
     };
+
+    if (loading) {
+        return (
+            <PaperProvider>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={{ marginTop: 16, color: colors.primary, fontWeight: 'bold' }}>Loading profile...</Text>
+                    </View>
+                </SafeAreaView>
+            </PaperProvider>
+        );
+    }
 
     return (
         <PaperProvider>
