@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Title, Divider } from 'react-native-paper';
@@ -6,6 +6,7 @@ import { UserCircle, MapPin, Mail, Edit3, PlusCircle, LogOut, Award, CheckCircle
 import { colors } from '../../../theme';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { useFocusEffect } from '@react-navigation/native';
 
 const ProfileScreen: React.FC = () => {
     const router = useRouter();
@@ -13,25 +14,28 @@ const ProfileScreen: React.FC = () => {
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchProfile = async () => {
-            if (!user || !token) return;
-            try {
-                setLoading(true);
-                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/users/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!res.ok) throw new Error('Failed to fetch profile');
-                const data = await res.json();
-                setProfile(data);
-            } catch (e) {
-                setProfile(null);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchProfile();
+    const fetchProfile = useCallback(async () => {
+        if (!user || !token) return;
+        try {
+            setLoading(true);
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch profile');
+            const data = await res.json();
+            setProfile(data);
+        } catch (e) {
+            setProfile(null);
+        } finally {
+            setLoading(false);
+        }
     }, [user, token]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchProfile();
+        }, [fetchProfile])
+    );
 
     const handleEditProfile = () => {
         router.push({
