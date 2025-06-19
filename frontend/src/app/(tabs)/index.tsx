@@ -140,6 +140,7 @@ const HomeScreen: React.FC = () => {
                         ))
                     ) : (
                         <View style={styles.emptyCard}>
+                            <Heart size={48} color={colors.textSecondary} />
                             <Text style={styles.emptyText}>No pets currently in care</Text>
                             <Text style={styles.emptySubText}>Your pets will appear here when they're with a sitter</Text>
                         </View>

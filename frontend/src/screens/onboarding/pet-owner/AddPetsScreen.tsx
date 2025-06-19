@@ -4,10 +4,12 @@ import { useRouter } from 'expo-router';
 import { colors, spacing } from '../../../theme';
 import { PawPrint } from 'lucide-react-native';
 import { useOnboardingStore, Pet } from '../../../store/onboardingStore';
+import { useAuthStore } from '../../../store/useAuthStore';
 
 const AddPetsScreen = () => {
     const router = useRouter();
     const { pets, removePet, getAllData, resetOnboardingState } = useOnboardingStore();
+    const setAuthData = useAuthStore((state) => state.setAuthData);
 
     const navigateToAddPetForm = () => {
         router.push({ pathname: '/onboarding/pet-owner/pet-form', params: { fromAddPets: 'true' } });
@@ -120,8 +122,9 @@ const AddPetsScreen = () => {
 
             const responseData = await response.json();
 
-            if (response.ok && responseData.status === 200) {
+            if (response.ok && responseData.status === 200 && responseData.user && responseData.token) {
                 // console.log('Registration successful:', responseData);
+                setAuthData(responseData.user, responseData.token); // Log the user in
                 resetOnboardingState(); // Clear onboarding data
                 router.replace('/(tabs)'); // Navigate to the main dashboard
             } else {

@@ -4,10 +4,12 @@ import { useRouter } from 'expo-router';
 import { PawPrint, UserCircle, Camera, CheckSquare, Square } from 'lucide-react-native'; // Added icons
 import { colors, spacing } from '../../../theme';
 import { useOnboardingStore } from '../../../store/onboardingStore'; // Import the store
+import { useAuthStore } from '../../../store/useAuthStore';
 
 const PetSitterProfileScreen = () => {
     const router = useRouter();
     const { setPetSitterOnboardingData, getAllData, resetOnboardingState } = useOnboardingStore(); // Get store action, getAllData, and resetOnboardingState
+    const setAuthData = useAuthStore((state) => state.setAuthData);
 
     const [bio, setBio] = useState('');
     const [motivation, setMotivation] = useState('');
@@ -92,8 +94,9 @@ const PetSitterProfileScreen = () => {
 
             const responseData = await response.json();
 
-            if (response.ok) {
+            if (response.ok && responseData.user && responseData.token) {
                 // console.log('Registration successful:', responseData);
+                setAuthData(responseData.user, responseData.token); // Log the user in
                 Alert.alert('Registration Successful', 'Your pet sitter profile has been created!');
                 resetOnboardingState();
                 router.replace('/(petSitterTabs)');
