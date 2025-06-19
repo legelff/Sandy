@@ -121,7 +121,7 @@ We welcome contributions! Please feel free to fork the repository, create a new 
 - Fati Diop
 - Ángela Caamaño Obertos
 
-## Contact
+## Developers & Contact
 
 - Aryan Shah: [Github](https://github.com/l145dev)
 - Nilou Karami Shahrokhi: [Github](https://github.com/Niloufr)
