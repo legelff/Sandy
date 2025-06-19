@@ -1,48 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Text as RNText, TouchableOpacity } from 'react-native'; // Added TouchableOpacity
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
 import LikedSitterCard, { LikedSitter } from '../../../components/options/LikedSitterCard'; // Adjusted path
 import { colors } from '../../../theme'; // Adjusted path
-import { useRouter } from 'expo-router'; // Added useRouter
+import { useRouter, useFocusEffect } from 'expo-router'; // Added useFocusEffect
 
-// Placeholder data for liked sitters
-const DUMMY_LIKED_SITTERS: LikedSitter[] = [
-    {
-        id: 's1',
-        sitterName: 'Alice Wonderland',
-        distance: '2 km away',
-        rating: 4.8,
-        selectedPets: ['Buddy (Dog)', 'Lucy (Cat)'],
-        fromDate: '2024-07-01',
-        toDate: '2024-07-05',
-        relevancyScore: 92,
-    },
-    {
-        id: 's2',
-        sitterName: 'Bob The Builder',
-        distance: '5 km away',
-        rating: 4.5,
-        selectedPets: ['Charlie (Dog)'],
-        fromDate: '2024-07-10',
-        toDate: '2024-07-12',
-        relevancyScore: 85,
-    },
-    {
-        id: 's3',
-        sitterName: 'Diana Prince',
-        distance: '3 km away',
-        rating: 4.7,
-        selectedPets: ['Whiskers (Cat)'],
-        fromDate: '2024-08-01',
-        toDate: '2024-08-03',
-        relevancyScore: 88,
-    },
-];
+import { useAuthStore } from '../../../store/useAuthStore';
+
 
 const OptionsScreen: React.FC = () => {
     const router = useRouter(); // Initialize router
-    const [likedSitters, setLikedSitters] = useState<LikedSitter[]>(DUMMY_LIKED_SITTERS);
+    const user = useAuthStore((state) => state.user);
+    const [likedSitters, setLikedSitters] = useState<LikedSitter[]>([]);
+
+    const fetchLikedSitters = async () => {
+        try {
+            console.log('User in OptionsScreen:', user);
+            const userId = user.id;
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/options?user_id=${userId}&street=Lange%20Ridderstraat%2044&city=Mechelen&postcode=2800`);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Fetch failed');
+
+            const mapped: LikedSitter[] = data.saved.map((b: any) => ({
+                id: b.save_id.toString(),
+                sitterUserId: b.sitter_user_id.toString(),
+                sitterName: b.sitter_name,
+                distance: `${b.distance} km away`,
+                rating: b.average_rating,
+                selectedPets: b.selected_pets,
+                fromDate: new Date(b.start_date).toLocaleDateString('en-CA'), // Outputs YYYY-MM-DD
+                toDate: new Date(b.end_date).toLocaleDateString('en-CA'),
+
+                relevancyScore: b.personality_match_score, // You can change this logic
+                servicePackage: b.service_package || 'Basic',
+            }));
+
+            setLikedSitters(mapped);
+        } catch (err) {
+            console.error('❌ Error fetching liked sitters:', err);
+        }
+    };
+
+    // Refresh data every time the tab is focused
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                fetchLikedSitters();
+            }
+        }, [user])
+    );
 
     const handleDeleteSitter = (idToDelete: string) => {
         setLikedSitters(prevSitters => prevSitters.filter(sitter => sitter.id !== idToDelete));
@@ -53,7 +60,9 @@ const OptionsScreen: React.FC = () => {
         router.push({
             pathname: '/(tabs)/options/details',
             params: { sitterData: JSON.stringify(sitter) },
+
         });
+        console.log('Pressed sitter card:', sitter);
     };
 
     return (

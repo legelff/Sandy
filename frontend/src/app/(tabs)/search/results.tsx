@@ -11,26 +11,33 @@ import Animated, {
     runOnJS
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import SitterCard, { Sitter } from '../../../components/search/SitterCard';
+import SitterCard from './SitterCard';
 import { colors } from '../../../theme';
 import { XCircle, Heart } from 'lucide-react-native'; // Icons for swipe actions
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.4;
 
-// Dummy Sitter Data - replace with actual data fetched based on search criteria
-const DUMMY_SITTERS: Sitter[] = [
-    { id: '1', name: 'Alice Wonderland', imageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8cG9ydHJhaXR8ZW58MHx8MHx8fDA%3D&w=1000&q=80', distance: '2 km', rating: 4.8, supportedPets: ['Dogs', 'Cats'], personality: 'Friendly & Energetic' },
-    { id: '2', name: 'Bob The Builder', imageUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8cG9ydHJhaXR8ZW58MHx8MHx8fDA%3D&w=1000&q=80', distance: '5 km', rating: 4.5, supportedPets: ['Dogs'], personality: 'Calm & Patient' },
-    { id: '3', name: 'Charlie Brown', imageUrl: 'https://images.unsplash.com/photo-1521119989659-a83eee488004?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8cG9ydHJhaXR8ZW58MHx8MHx8fDA%3D&w=1000&q=80', distance: '1.5 km', rating: 4.9, supportedPets: ['Cats', 'Birds'], personality: 'Playful & Caring' },
-    { id: '4', name: 'Diana Prince', imageUrl: 'https://images.unsplash.com/photo-1500099817043-b746da694ada?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTF8fHBvcnRyYWl0JTIwd29tYW58ZW58MHx8MHx8fDA%3D&w=1000&q=80', distance: '3 km', rating: 4.7, supportedPets: ['Dogs', 'Small Animals'], personality: 'Reliable & Loving' },
-];
+
+
+type Sitter = {
+    sitter_user_id: number;
+    sitter_id: number;
+    name: string;
+    distance: number;
+    pictures: string[];
+    average_rating: number;
+    supported_pets: string[];
+    personality: string;
+    personality_match_score: number;
+};
+
 
 const SearchResultsScreen = () => {
     const router = useRouter();
     const params = useLocalSearchParams(); // To potentially get search criteria
 
-    const [sitters, setSitters] = useState<Sitter[]>(DUMMY_SITTERS);
+    const [sitters, setSitters] = useState<Sitter[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const translateX = useSharedValue(0);
@@ -38,12 +45,70 @@ const SearchResultsScreen = () => {
 
     const currentSitter = sitters[currentIndex];
 
-    const onSwipeComplete = useCallback((liked: boolean) => {
-        console.log(liked ? 'Liked:' : 'Disliked:', sitters[currentIndex]?.name);
+    // Load sitters from query params
+    useEffect(() => {
+  if (params.sitters) {
+    try {
+      const parsedSitters = JSON.parse(params.sitters as string);
+      console.log('Parsed sitters:', parsedSitters);
+      setSitters((prev) => {
+        const prevJson = JSON.stringify(prev);
+        const nextJson = JSON.stringify(parsedSitters);
+        return prevJson !== nextJson ? parsedSitters : prev;
+      });
+    } catch (e) {
+      console.error('Invalid sitters JSON', e);
+    }
+  }
+}, [params.sitters]);
+
+
+
+    const onSwipeComplete = useCallback(async (liked: boolean) => {
+    const currentSitter = sitters[currentIndex];
+
+    
+        if (liked) {
+            const payload = {
+                user_id: params.userId,
+                sitter_user_id: currentSitter.sitter_user_id,
+                start_date: params.fromDate,
+                end_date: params.toDate,
+                selected_pets: params.selectedPets
+                    ? JSON.parse(params.selectedPets as string).map((pet: any) => pet.id)
+                    : [],
+                street: params.street || 'Default Street',
+                city: params.city || 'Default City',
+                postcode: params.postcode || '0000',
+                };
+            console.log('Booking payload:', payload);
+            try {
+                const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/save`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save booking');
+                }
+
+                const data = await response.json();
+                console.log('Booking saved successfully:', data);
+                // You can show a success toast or notification here
+            } catch (error) {
+                console.error('Error saving booking:', error);
+                // You can show an error toast or notification here
+            } 
+        }
+
+        console.log(liked ? 'Liked:' : 'Disliked:', currentSitter?.name);
         setCurrentIndex(prevIndex => prevIndex + 1);
-        translateX.value = 0; // Reset for next card
+        translateX.value = 0;
         rotate.value = 0;
-    }, [currentIndex, sitters, translateX, rotate]);
+    }, [currentIndex, sitters, translateX, rotate, params]);
 
     const panGesture = Gesture.Pan()
         .onUpdate((event) => {
@@ -93,15 +158,26 @@ const SearchResultsScreen = () => {
 
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>{/* Required for gesture handler */}
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={styles.container}>                
                 <View style={styles.deckContainer}>
                     {sitters.map((sitter, index) => {
                         if (index < currentIndex) return null; // Don't render swiped cards
                         if (index === currentIndex) {
                             return (
-                                <GestureDetector gesture={panGesture} key={sitter.id}>
+                                <GestureDetector gesture={panGesture} key={sitter.sitter_id}>
                                     <Animated.View style={[styles.animatedCard, animatedCardStyle]}>
-                                        <SitterCard sitter={sitter} />
+                                                  <SitterCard
+                                                    sitter={{
+                                                    id: sitter.sitter_user_id.toString(),
+                                                    personality_match_score: sitter.personality_match_score,
+                                                    name: sitter.name,
+                                                    imageUrl: sitter.pictures?.[0] || 'https://via.placeholder.com/400x600.png?text=Pet+Sitter',
+                                                    distance: sitter.distance.toFixed(1) + ' km',
+                                                    rating: sitter.average_rating,
+                                                    supportedPets: sitter.supported_pets,
+                                                    personality: sitter.personality
+                                                    }}
+                                                />
                                         <Animated.View style={[styles.overlayLabel, styles.likeLabel, likeOpacity]}>
                                             <Heart size={80} color="green" fill="green" />
                                         </Animated.View>
@@ -115,8 +191,19 @@ const SearchResultsScreen = () => {
                         // Render next card underneath for a stack effect (simplified)
                         if (index === currentIndex + 1) {
                             return (
-                                <Animated.View key={sitter.id} style={[styles.animatedCard, styles.nextCard]}>
-                                    <SitterCard sitter={sitter} />
+                                <Animated.View key={sitter.sitter_id} style={[styles.animatedCard, styles.nextCard]}>
+                                    <SitterCard
+                                        sitter={{
+                                            id: sitter.sitter_user_id.toString(),
+                                            name: sitter.name,
+                                            personality_match_score: sitter.personality_match_score,
+                                            imageUrl: sitter.pictures?.[0] || 'https://via.placeholder.com/400x600.png?text=Pet+Sitter',
+                                            distance: `${sitter.distance.toFixed(1)} km`,
+                                            rating: sitter.average_rating,
+                                            supportedPets: sitter.supported_pets,
+                                            personality: sitter.personality
+                                        }}/>
+
                                 </Animated.View>
                             );
                         }

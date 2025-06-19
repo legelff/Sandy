@@ -25,6 +25,8 @@ A pet sitter wrote this about themselves:
 From 1 to 10, how compatible is this sitter with this pet? Respond with only a number. Do not explain.
     `.trim();
 
+    console.log("🔍 Sending prompt to GROQ:", prompt); // Debug line to inspect prompt
+
     const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
       model: "meta-llama/llama-4-scout-17b-16e-instruct",
       messages: [
@@ -35,7 +37,7 @@ From 1 to 10, how compatible is this sitter with this pet? Respond with only a n
       ]
     }, {
       headers: {
-        Authorization: `Bearer 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`,
+        Authorization: `Bearer ${process.env.GROQ_KEY}`,
         'Content-Type': 'application/json'
       }
     });
@@ -107,13 +109,29 @@ router.get('/results', async (req, res) => {
     city,
     postcode,
     service_tier
-  } = req.body;
+  } = req.query;
 
   if (!start_date || !end_date || !pets.length) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  const speciesRequested = [...new Set(pets.map(p => p.species.toLowerCase()))];
+  const petIds = pets.split(',').map(id => parseInt(id)).filter(Boolean);
+
+    const petDetailsRes = await pool.query(`
+      SELECT 
+        p.id, 
+        p.personality, 
+        p.favorite_activities_and_needs, 
+        p.energy_level, 
+        p.comfort_with_strangers,
+        s.name AS species
+      FROM pets p
+      LEFT JOIN species s ON s.id = p.species_id
+      WHERE p.id = ANY($1)
+    `, [petIds]);
+
+    const petDetails = petDetailsRes.rows;
+    const speciesRequested = petDetails.map(r => r.species.toLowerCase());
   const serviceTierRequired = service_tier === 'premium';
 
   try {
@@ -150,6 +168,7 @@ router.get('/results', async (req, res) => {
     `;
 
     const result = await pool.query(query, [serviceTierRequired]);
+    console.log('✅ Sitters fetched from DB:', result.rows.length);
     const matchingSitters = [];
 
     for (const sitter of result.rows) {
@@ -157,14 +176,23 @@ router.get('/results', async (req, res) => {
       const supportsAllPets = speciesRequested.every(spec => supported.includes(spec));
       const availableDays = sitter.available_days || [];
       const isAvailable = requiredDays.every(day => availableDays.includes(day));
-      if (!supportsAllPets || !isAvailable) continue;
+        if (!supportsAllPets) {
+    console.log(`❌ Sitter ${sitter.name} filtered out due to unsupported species`, { required: speciesRequested, supported });
+        continue;
+      }
+
+      if (!isAvailable) {
+        console.log(`❌ Sitter ${sitter.name} filtered out due to unavailability`, { requiredDays, availableDays });
+        continue;
+      }
 
       let totalPersonalityScore = 0;
-      for (const pet of pets) {
+      for (const pet of petDetails) {
         const score = await getPersonalityMatchScore(pet, sitter.personality_and_motivation);
         totalPersonalityScore += score;
       }
-      const avgPersonalityScore = totalPersonalityScore / pets.length;
+
+      const avgPersonalityScore = totalPersonalityScore / petIds.length;
       const sitterAddress = `${sitter.street}, ${sitter.city}, ${sitter.postcode}`;
       const sitterCoords = await geocode(sitterAddress);
 
@@ -179,6 +207,7 @@ router.get('/results', async (req, res) => {
 
 
       matchingSitters.push({
+        sitter_user_id: sitter.user_id,
         sitter_id: sitter.sitter_id,
         name: sitter.name,
         distance: parseFloat(distance.toFixed(2)),
@@ -186,9 +215,9 @@ router.get('/results', async (req, res) => {
         average_rating: sitter.average_rating || 0,
         supported_pets: supported,
         personality: sitter.personality_and_motivation,
-        personality_match_score: avgPersonalityScore,
-        combined_score: combinedScore
+        personality_match_score: avgPersonalityScore
       });
+
     }
 
     matchingSitters.sort((a, b) => b.combined_score - a.combined_score);
@@ -199,7 +228,6 @@ router.get('/results', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
-
 
 router.get('/sitter', async (req, res) => {
   const sitterUserId = req.query.user_id;
@@ -222,7 +250,7 @@ router.get('/sitter', async (req, res) => {
     const sitterCoords = await geocode(sitterAddress);
 
     const bookingQuery = `
-      SELECT b.id AS request_id, b.street, b.city, b.postcode, b.owner_id, u.name AS owner_name
+      SELECT b.id AS request_id, b.street, b.city, b.postcode, b.start_datetime, b.end_datetime, b.owner_id, u.name AS owner_name
       FROM bookings b
       JOIN users u ON u.id = b.owner_id
       WHERE b.sitter_id = $1 AND b.status = 'requested'
@@ -230,10 +258,6 @@ router.get('/sitter', async (req, res) => {
     const bookings = await pool.query(bookingQuery, [sitterId]);
 
     const results = [];
-    console.log('🔎 Raw sitterUser result:', sitterUserRes.rows);
-    console.log('🧑 Final sitterUser:', sitterUser);
-    console.log('📍 Final address used for geocoding:', sitterAddress);
-
 
     for (const booking of bookings.rows) {
       const bookingAddress = `${booking.street}, ${booking.city}, ${booking.postcode}`;
@@ -242,7 +266,6 @@ router.get('/sitter', async (req, res) => {
         sitterCoords.lat, sitterCoords.lng,
         bookingCoords.lat, bookingCoords.lng
       );
-
 
       const petsQuery = `
         SELECT p.id AS pet_id, s.name AS pet_species, p.personality
@@ -253,6 +276,15 @@ router.get('/sitter', async (req, res) => {
       `;
       const pets = await pool.query(petsQuery, [booking.request_id]);
 
+      // ✅ Moved inside loop
+      const ratingQuery = `
+        SELECT ROUND(AVG(rating), 1)::float AS avg_rating
+        FROM user_reviews
+        WHERE user_id = $1
+      `;
+      const ratingRes = await pool.query(ratingQuery, [booking.owner_id]);
+      const averageRating = ratingRes.rows[0]?.avg_rating || 0;
+
       results.push({
         request_id: booking.request_id,
         owner_name: booking.owner_name,
@@ -261,7 +293,10 @@ router.get('/sitter', async (req, res) => {
           pet_id: p.pet_id,
           pet_species: p.pet_species
         })),
-        personality: pets.rows.map(p => p.personality).join(', ')
+        personality: pets.rows.map(p => p.personality).join(', '),
+        start_date: new Date(booking.start_datetime).toLocaleDateString('en-CA'),
+        end_date: new Date(booking.end_datetime).toLocaleDateString('en-CA'),
+        average_rating: averageRating
       });
     }
 
@@ -271,6 +306,7 @@ router.get('/sitter', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 
 
@@ -372,7 +408,7 @@ router.get('/owner', async (req, res) => {
 
   try {
     const query = `
-      SELECT p.name, s.name AS species
+      SELECT p.id, p.name, s.name AS species
       FROM pets p
       LEFT JOIN species s ON p.species_id = s.id
       WHERE p.owner_id = $1

@@ -5,19 +5,16 @@ import { Text, TextInput, RadioButton, Checkbox, Provider as PaperProvider, Card
 import { useRouter } from 'expo-router';
 import { colors } from '../../../theme'; // Adjusted import path
 import { CalendarDays, MapPin, Briefcase } from 'lucide-react-native';
+import { useEffect } from 'react';
+import { useAuthStore } from '../../../store/useAuthStore';
 
-// Dummy data for pets - replace with actual data source later
-const USER_PETS = [
-    { id: '1', name: 'Buddy (Dog)' },
-    { id: '2', name: 'Lucy (Cat)' },
-    { id: '3', name: 'Charlie (Dog)' },
-];
 
 const SERVICE_PACKAGES = ['Basic', 'Extended'];
 
 // Renamed from SearchScreen to SearchFormScreen or similar if preferred, keeping SearchScreen for now as it's the index.
 const SearchIndexScreen: React.FC = () => {
     const router = useRouter();
+    const user = useAuthStore((state) => state.user);
 
     const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
     const [fromDate, setFromDate] = useState<string>('');
@@ -30,27 +27,92 @@ const SearchIndexScreen: React.FC = () => {
     const [showFromDatePicker, setShowFromDatePicker] = useState(false);
     const [showToDatePicker, setShowToDatePicker] = useState(false);
 
+    const [userPets, setUserPets] = useState<{ id: string; name: string }[]>([]);
+
+    useEffect(() => {
+    const fetchPets = async () => {
+        try {
+        if (!user?.id) {
+            console.error('No user ID found');
+            return;
+        }
+        const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/owner?user_id=${user.id}`);
+        const data = await response.json();
+
+        const petsFromAPI = data.pets.map((pet: any) => ({
+            id: pet.id.toString(), // Use actual pet.id
+            name: `${pet.name} (${pet.species})`
+        }));
+
+        setUserPets(petsFromAPI);
+        } catch (error) {
+        console.error('Failed to fetch pets:', error);
+        }
+    };
+
+    fetchPets();
+    }, []);
+
     const togglePetSelection = (petId: string) => {
         setSelectedPetIds(prev =>
             prev.includes(petId) ? prev.filter(id => id !== petId) : [...prev, petId]
         );
     };
 
-    const handleStartSearching = () => {
-        const searchCriteria = {
-            selectedPetIds,
-            fromDate,
-            toDate,
-            location: locationOption === 'custom' ? customLocation : locationOption,
-            servicePackage,
-        };
-        console.log('Search Criteria:', searchCriteria);
+    const handleStartSearching = async () => {
+        if (!selectedPetIds.length || !fromDate || !toDate) {
+            alert('Please fill in all required fields');
+            return;
+        }
 
-        // Navigate to the search results screen using a more explicit path
-        router.push({
-            pathname: '/(tabs)/search/results', // Using absolute path from app directory
-            params: { criteria: JSON.stringify(searchCriteria) } // Pass criteria as params
-        });
+        try {
+            // Build query string
+            const params = new URLSearchParams({
+                pets: selectedPetIds.join(','),
+                start_date: fromDate,
+                end_date: toDate,
+                street_address: 'Lange Ridderstraat 44',
+                city: 'Mechelen',
+                postcode: '2800',
+                service_tier: servicePackage.toLowerCase()
+            });
+
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/results?${params}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Search failed');
+            }
+
+            const data = await response.json();
+            
+            router.push({
+                pathname: '/(tabs)/search/results',
+                params: {
+                    sitters: JSON.stringify(data.matching_sitters),
+                    userId: user.id.toString(), // or just user.id if it's already a string
+                    fromDate,
+                    toDate,
+                    selectedPets: JSON.stringify(
+                    userPets.filter(pet => selectedPetIds.includes(pet.id))
+                    ),
+                    street: 'Lange Ridderstraat 44',
+                    city: 'Mechelen',
+                    postcode: '2800',
+                },
+            });
+
+            console.log('Search results:', data.matching_sitters);
+
+
+        } catch (error) {
+            console.error('Search failed:', error);
+            alert('Failed to find matching sitters. Please try again.');
+        }
     };
 
     // TODO: Implement actual date picker modals or inputs
@@ -81,7 +143,7 @@ const SearchIndexScreen: React.FC = () => {
                         <Card style={styles.card}>
                             <Card.Content>
                                 <Title style={styles.cardTitle}>Select Your Pet(s)</Title>
-                                {USER_PETS.map(pet => (
+                                {userPets.map(pet => (
                                     <Checkbox.Item
                                         key={pet.id}
                                         label={pet.name}

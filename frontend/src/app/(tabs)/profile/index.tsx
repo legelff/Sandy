@@ -1,78 +1,73 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Provider as PaperProvider, Title, Paragraph, Divider } from 'react-native-paper';
-import { UserCircle, MapPin, Mail, Edit3, PlusCircle } from 'lucide-react-native';
-import PetListItem, { PetProfileItem } from '../../../components/profile/PetListItem';
+import { Provider as PaperProvider, Title, Divider } from 'react-native-paper';
+import { UserCircle, MapPin, Mail, Edit3, PlusCircle, LogOut, Award, CheckCircle, DollarSign, PawPrint } from 'lucide-react-native';
 import { colors } from '../../../theme';
 import { useRouter } from 'expo-router';
-
-// Placeholder data for user
-const DUMMY_USER = {
-    profilePictureUrl: 'https://placehold.co/600x400', // Replace with actual image URI or null
-    name: "Catherine 'Cat' Owner",
-    email: 'cat.owner@example.com',
-    address: '123 Kitten Street',
-    city: 'Meowville',
-    postcode: 'MV123',
-};
-
-// Placeholder data for pets
-const DUMMY_PETS: PetProfileItem[] = [
-    {
-        id: 'pet1',
-        name: 'Whiskers',
-        species: 'Cat',
-        breed: 'Siamese',
-        age: 3,
-        profilePictureUrl: 'https://placecats.com/300/200',
-    },
-    {
-        id: 'pet2',
-        name: 'Shadow',
-        species: 'Dog',
-        breed: 'Labrador',
-        age: 5,
-        profilePictureUrl: 'https://placedog.net/100/100',
-    },
-    {
-        id: 'pet3',
-        name: 'Goldie',
-        species: 'Fish',
-        breed: 'Goldfish',
-        age: 1,
-        // No profile picture for fishy
-    },
-];
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useFocusEffect } from '@react-navigation/native';
 
 const ProfileScreen: React.FC = () => {
     const router = useRouter();
-    const [user, setUser] = useState(DUMMY_USER);
-    const [pets, setPets] = useState<PetProfileItem[]>(DUMMY_PETS);
+    const { user, token } = useAuthStore();
+    const [profile, setProfile] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    const fetchProfile = useCallback(async () => {
+        if (!user || !token) return;
+        try {
+            setLoading(true);
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/users/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch profile');
+            const data = await res.json();
+            setProfile(data);
+        } catch (e) {
+            setProfile(null);
+        } finally {
+            setLoading(false);
+        }
+    }, [user, token]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchProfile();
+        }, [fetchProfile])
+    );
 
     const handleEditProfile = () => {
-        // console.log('Edit profile clicked');
-        // Navigate to edit profile screen or open modal
         router.push({
             pathname: '/(tabs)/profile/edit-profile',
-            params: { userData: JSON.stringify(user) }, // Pass current user data
+            params: { userData: JSON.stringify(profile) },
         });
+    };
+
+    const handleLogout = () => {
+        router.replace('/login');
     };
 
     const handleAddPet = () => {
         router.push('/(tabs)/profile/add-pet');
     };
 
-    const handleEditPet = (petId: string) => {
-        console.log(`Edit pet clicked: ${petId}`);
-        // Navigate to edit pet screen or open modal, passing petId
-    };
+    if (loading || !profile) {
+        return (
+            <PaperProvider>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={{ marginTop: 16, color: colors.primary, fontWeight: 'bold' }}>Loading profile...</Text>
+                    </View>
+                </SafeAreaView>
+            </PaperProvider>
+        );
+    }
 
-    const handleDeletePet = (petId: string) => {
-        console.log(`Delete pet clicked: ${petId}`);
-        setPets(prevPets => prevPets.filter(pet => pet.id !== petId));
-        // Call API to delete pet
-    };
+    const roleInfo = profile.roleInfo || {};
+    const pets = profile.pets || [];
+    const profilePictureUrl = profile.profilePictureUrl || 'https://placehold.co/600x400?text=Owner';
 
     return (
         <PaperProvider>
@@ -80,31 +75,54 @@ const ProfileScreen: React.FC = () => {
                 <ScrollView style={styles.container}>
                     <View style={styles.profileHeader}>
                         <View style={styles.profileImageContainer}>
-                            {user.profilePictureUrl ? (
-                                <Image source={{ uri: user.profilePictureUrl }} style={styles.profileImage} />
+                            {profilePictureUrl ? (
+                                <Image source={{ uri: profilePictureUrl }} style={styles.profileImage} />
                             ) : (
                                 <UserCircle size={120} color={colors.primary} />
                             )}
                         </View>
-                        <Title style={styles.userName}>{user.name}</Title>
+                        <Title style={styles.userName}>{profile.name}</Title>
                         <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
                             <Edit3 size={18} color={colors.primary} />
                             <Text style={styles.editProfileButtonText}>Edit Profile</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.editProfileButton, styles.logoutButton]} onPress={handleLogout}>
+                            <LogOut size={18} color={colors.danger} />
+                            <Text style={[styles.editProfileButtonText, styles.logoutButtonText]}>Logout</Text>
                         </TouchableOpacity>
                     </View>
 
                     <View style={styles.userInfoSection}>
                         <View style={styles.infoItem}>
                             <Mail size={20} color={colors.textDark} style={styles.infoIcon} />
-                            <Text style={styles.infoText}>{user.email}</Text>
+                            <Text style={styles.infoText}>{profile.email}</Text>
                         </View>
                         <Divider style={styles.divider} />
                         <View style={styles.infoItem}>
                             <MapPin size={20} color={colors.textDark} style={styles.infoIcon} />
-                            <Text style={styles.infoText}>{`${user.address}, ${user.city}, ${user.postcode}`}</Text>
+                            <Text style={styles.infoText}>{`${profile.street}, ${profile.city}, ${profile.postcode}`}</Text>
                         </View>
                     </View>
 
+                    {/* Subscription Section */}
+                    <View style={styles.subscriptionSection}>
+                        <Title style={styles.sectionTitle}>Subscription</Title>
+                        <View style={styles.infoItem}>
+                            <Award size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Subscription: {roleInfo.subscription_name || '-'}</Text>
+                        </View>
+                        <View style={styles.infoItem}>
+                            <CheckCircle size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Ad Free: {roleInfo.is_ad_free ? 'Yes' : 'No'}</Text>
+                        </View>
+                        <View style={styles.infoItem}>
+                            <CheckCircle size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Extended: {roleInfo.extended ? 'Yes' : 'No'}</Text>
+                        </View>
+                        <Divider style={styles.divider} />
+                    </View>
+
+                    {/* Pets Section */}
                     <View style={styles.petsSection}>
                         <View style={styles.petsHeaderContainer}>
                             <Title style={styles.petsTitle}>Your Pets</Title>
@@ -117,14 +135,23 @@ const ProfileScreen: React.FC = () => {
                             <FlatList
                                 data={pets}
                                 renderItem={({ item }) => (
-                                    <PetListItem
-                                        pet={item}
-                                        onEdit={handleEditPet}
-                                        onDelete={handleDeletePet}
-                                    />
+                                    <View style={styles.petCard}>
+                                        <View style={styles.petCardHeader}>
+                                            <Image source={{ uri: 'https://placecats.com/300/200' }} style={styles.petImage} />
+                                            <View style={{ marginLeft: 12, flex: 1, justifyContent: 'center' }}>
+                                                <Text style={styles.petName}>{item.name}</Text>
+                                                {item.breed ? (
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                                                        <PawPrint size={16} color={'#27ae60'} style={{ marginRight: 4 }} />
+                                                        <Text style={styles.petBreed}>{item.breed}</Text>
+                                                    </View>
+                                                ) : null}
+                                            </View>
+                                        </View>
+                                    </View>
                                 )}
-                                keyExtractor={(item) => item.id}
-                                scrollEnabled={false} // To ensure ScrollView handles scrolling
+                                keyExtractor={(item) => String(item.id)}
+                                scrollEnabled={false}
                                 contentContainerStyle={styles.petsListContainer}
                             />
                         ) : (
@@ -186,6 +213,13 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontSize: 14,
         fontWeight: '600',
+    },
+    logoutButton: {
+        backgroundColor: colors.danger + '20',
+        marginTop: 10, // Add some space above the logout button
+    },
+    logoutButtonText: {
+        color: colors.danger,
     },
     userInfoSection: {
         backgroundColor: '#fff',
@@ -249,6 +283,55 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
         fontSize: 16,
+        color: colors.textLight,
+    },
+    subscriptionSection: {
+        backgroundColor: '#fff',
+        marginTop: 8,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: colors.textDark,
+        marginBottom: 12,
+    },
+    petCard: {
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginBottom: 12,
+        elevation: 2,
+        paddingVertical: 6,
+        paddingHorizontal: 6,
+        minHeight: 0,
+    },
+    petCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        paddingBottom: 6,
+    },
+    petImage: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        marginRight: 12,
+    },
+    petName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.textDark,
+    },
+    petBreed: {
+        fontSize: 14,
+        color: '#27ae60',
+        fontWeight: '500',
+    },
+    petDetails: {
+        fontSize: 14,
         color: colors.textLight,
     },
 });

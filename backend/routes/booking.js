@@ -198,4 +198,102 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 });
 
+router.post('/respond', async (req, res) => {
+    const { booking_id, action } = req.body;
+
+    if (!booking_id || action !== 'accepted') {
+        return res.status(400).json({ error: 'Invalid request. booking_id and valid action required.' });
+    }
+
+    try {
+        const updateRes = await pool.query(
+            `UPDATE bookings SET status = 'accepted' WHERE id = $1 RETURNING *`,
+            [booking_id]
+        );
+
+        if (updateRes.rowCount === 0) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        // --- Conversation creation after booking acceptance ---
+        try {
+            const booking = updateRes.rows[0];
+            const ownerId = booking.owner_id;
+            const sitterId = booking.sitter_id;
+            const userSitterIdRes = await pool.query(
+                'SELECT user_id FROM pet_sitters WHERE (id = $1)',
+                [sitterId]
+            )
+            let userSitterId
+            if (userSitterIdRes.rows.length == 0) {
+                console.log("couldnt find sitter, assuming user_id is sitter id!")
+                userSitterId = sitterId
+            } else {
+                userSitterId = userSitterIdRes.rows[0].user_id
+            }
+
+            let conversationId;
+            console.log('[Booking Accept] ownerId:', ownerId, 'sitterId:', sitterId);
+            // Check if conversation exists
+            const convRes = await pool.query(
+                'SELECT id FROM conversations WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $2 AND user2_id = $1)',
+                ownerId < userSitterId ? [ownerId, userSitterId] : [userSitterId, ownerId]
+            );
+            if (convRes.rows.length > 0) {
+                conversationId = convRes.rows[0].id;
+                console.log('[Booking Accept] Conversation already exists:', conversationId);
+            } else {
+                const newConv = await pool.query(
+                    'INSERT INTO conversations (user1_id, user2_id) VALUES ($1, $2) RETURNING id',
+                    [ownerId, userSitterId]
+                );
+                conversationId = newConv.rows[0].id;
+                console.log('[Booking Accept] Created new conversation:', conversationId);
+            }
+            // Check if a booking_accepted message for this booking already exists
+            const existingMsg = await pool.query(
+                'SELECT 1 FROM messages WHERE conversation_id = $1 AND content::jsonb @> $2::jsonb LIMIT 1',
+                [conversationId, JSON.stringify({ type: 'booking_accepted', booking: { id: booking.id } })]
+            );
+            if (existingMsg.rows.length === 0) {
+                // Fetch booking details for message
+                const bookingDetails = await pool.query(
+                    'SELECT b.*, string_agg(p.name, ", ") as pet_names, o.name as owner_name, b.city, b.postcode FROM bookings b JOIN booking_pets bp ON b.id = bp.booking_id JOIN pets p ON bp.pet_id = p.id JOIN users o ON b.owner_id = o.id WHERE b.id = $1 GROUP BY b.id, o.name',
+                    [booking.id]
+                );
+                const b = bookingDetails.rows[0];
+                await pool.query(
+                    'INSERT INTO messages (conversation_id, sender_id, content) VALUES ($1, $2, $3)',
+                    [
+                        conversationId,
+                        userSitterId,
+                        JSON.stringify({
+                            type: 'booking_accepted',
+                            booking: {
+                                id: b.id,
+                                petNames: b.pet_names,
+                                startDate: b.start_datetime,
+                                endDate: b.end_datetime,
+                                location: `${b.city || ''} ${b.postcode || ''}`.trim(),
+                                ownerName: b.owner_name
+                            }
+                        })
+                    ]
+                );
+                console.log('[Booking Accept] Inserted initial booking message for conversation:', conversationId);
+            } else {
+                console.log('[Booking Accept] Initial booking message already exists for conversation:', conversationId);
+            }
+        } catch (convErr) {
+            console.error('[Booking Accept] Error creating conversation or message:', convErr);
+        }
+        // --- End conversation creation ---
+
+        res.status(200).json({ message: 'Booking accepted and updated', booking: updateRes.rows[0] });
+    } catch (err) {
+        console.error('Error in /bookings/respond:', err);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+});
+
 module.exports = router;

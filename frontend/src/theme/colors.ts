@@ -5,4 +5,5 @@ export const colors = {
     textDark: '#000000',
     white: '#FFFFFF',
     textSecondary: '#888888',
+    danger: '#FF0000',
 }; 

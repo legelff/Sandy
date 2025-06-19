@@ -114,7 +114,7 @@ router.get('/sitter', async (req, res) => {
 
     // 2. Get active pets (from active bookings)
     const activePetsQuery = `
-      SELECT p.name, s.name AS species, p.owner_id, b.id AS booking_id
+      SELECT p.name, s.name AS species, p.owner_id, b.id AS booking_id, b.status AS status
       FROM bookings b
       JOIN booking_pets bp ON b.id = bp.booking_id
       JOIN pets p ON p.id = bp.pet_id
@@ -122,13 +122,13 @@ router.get('/sitter', async (req, res) => {
       WHERE b.sitter_id = (
         SELECT id FROM pet_sitters WHERE user_id = $1
       )
-      AND b.status IN ('accepted', 'confirmed')
+      AND LOWER(b.status) IN ('accepted', 'confirmed')
     `;
     const activePetsResult = await pool.query(activePetsQuery, [userId]);
 
     // 3. Get historical pets (from completed bookings + ratings)
     const historyQuery = `
-      SELECT p.name, s.name AS species, pr.rating
+      SELECT p.name, s.name AS species, pr.rating, b.status AS status
       FROM bookings b
       JOIN booking_pets bp ON b.id = bp.booking_id
       JOIN pets p ON p.id = bp.pet_id
@@ -137,7 +137,7 @@ router.get('/sitter', async (req, res) => {
       WHERE b.sitter_id = (
         SELECT id FROM pet_sitters WHERE user_id = $1
       )
-      AND b.status = 'completed'
+      AND LOWER(b.status) = 'completed'
     `;
     const historyResult = await pool.query(historyQuery, [userId]);
 
@@ -148,12 +148,14 @@ router.get('/sitter', async (req, res) => {
         active: activePetsResult.rows.map(pet => ({
           name: pet.name,
           species: pet.species,
+          status: pet.status,
           last_bpm: null, // placeholder (not available in schema),
           owner_id: pet.owner_id
         })),
         history: historyResult.rows.map(pet => ({
           name: pet.name,
           species: pet.species,
+          status: pet.status,
           rating: pet.rating
         }))
       }

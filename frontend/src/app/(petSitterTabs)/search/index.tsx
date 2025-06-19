@@ -14,57 +14,22 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import BookingRequestCard, { BookingRequest } from '../../../components/search/BookingRequestCard'; // Adjusted import
 import { colors } from '../../../theme';
 import { XCircle, Heart, CheckCircle } from 'lucide-react-native'; // Added CheckCircle for accept
+import { useAuthStore } from '../../../store/useAuthStore';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const SWIPE_THRESHOLD = screenWidth * 0.4;
 
-// Dummy Booking Request Data - replace with actual data fetched
-const DUMMY_BOOKING_REQUESTS: BookingRequest[] = [
-    {
-        id: 'req1',
-        requesterName: 'Alice Wonderland',
-        requesterImageUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8cG9ydHJhaXR8ZW58MHx8MHx8fDA%3D&w=1000&q=80',
-        petNames: ['Fluffy (Dog)', 'Whiskers (Cat)'],
-        distance: '2 km away',
-        location: 'City Park Area',
-        rating: 4.8,
-        bookingStartDate: '2023-11-10',
-        bookingEndDate: '2023-11-12',
-        petPersonalities: ['Friendly', 'Playful', 'Needs regular walks']
-    },
-    {
-        id: 'req2',
-        requesterName: 'Bob The Builder',
-        requesterImageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fHBvcnRyYWl0fGVufDB8fDB8fHww&w=1000&q=80',
-        petNames: ['Buddy (Dog)'],
-        distance: '5 km away',
-        location: 'Suburbia Gardens',
-        rating: 4.5,
-        bookingStartDate: '2023-11-15',
-        bookingEndDate: '2023-11-17',
-        petPersonalities: ['Calm', 'Loves cuddles', 'Good with children']
-    },
-    {
-        id: 'req3',
-        requesterName: 'Charlie Brown',
-        // No image for Charlie
-        petNames: ['Goldie (Fish)'],
-        distance: '1.5 km away',
-        location: 'Downtown Apartments',
-        bookingStartDate: '2023-11-20',
-        bookingEndDate: '2023-11-21',
-        petPersonalities: ['Low maintenance']
-    },
-];
+
 
 /**
  * PetSitterRequestScreen displays incoming booking requests for pet sitters in a swipeable card interface.
  */
 const PetSitterRequestScreen: React.FC = () => {
     const router = useRouter();
+    const user = useAuthStore((state) => state.user);
     // const params = useLocalSearchParams(); // If you need to filter requests based on some params
 
-    const [requests, setRequests] = useState<BookingRequest[]>(DUMMY_BOOKING_REQUESTS);
+    const [requests, setRequests] = useState<BookingRequest[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const translateX = useSharedValue(0);
@@ -72,13 +37,62 @@ const PetSitterRequestScreen: React.FC = () => {
 
     const currentRequest = requests[currentIndex];
 
-    const onSwipeComplete = useCallback((action: 'accepted' | 'rejected') => {
-        console.log(action === 'accepted' ? 'Accepted:' : 'Rejected:', requests[currentIndex]?.requesterName, requests[currentIndex]?.id);
-        // TODO: Implement backend call to accept/reject the request
-        setCurrentIndex(prevIndex => prevIndex + 1);
-        translateX.value = 0; // Reset for next card
-        rotate.value = 0;
-    }, [currentIndex, requests, translateX, rotate]);
+    useEffect(() => {
+        const fetchRequests = async () => {
+            try {
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/sitter?user_id=${user.id}`);
+            const data = await res.json();
+
+           const mapped: BookingRequest[] = data.requests.map((b: any) => ({
+            id: b.request_id.toString(),
+            requesterName: b.owner_name,
+            requesterImageUrl: null, // Optional
+            petNames: b.pets.map((p: any) => `${p.pet_species}`),
+            distance: `${b.distance} km away`,
+            location: `${b.city || ''} ${b.postcode || ''}`, // Optional
+            rating: b.average_rating,
+            bookingStartDate: new Date(b.start_date).toLocaleDateString('en-CA'),
+            bookingEndDate: new Date(b.end_date).toLocaleDateString('en-CA'),
+            petPersonalities: b.personality.split(', ').filter(Boolean)
+            }));
+
+
+            setRequests(mapped);
+            } catch (err) {
+            console.error('Failed to fetch sitter booking requests:', err);
+            }
+        };
+
+        fetchRequests();
+        }, []);
+
+
+    const onSwipeComplete = useCallback(async (action: 'accepted' | 'rejected') => {
+    const current = requests[currentIndex];
+    if (!current) return;
+
+    if (action === 'accepted') {
+        try {
+            await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/booking/respond`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    booking_id: parseInt(current.id),
+                    action: 'accepted'
+                })
+            });
+            console.log('✅ Booking accepted:', current.id);
+        } catch (error) {
+            console.error('❌ Failed to accept booking:', error);
+        }
+    }
+
+    // Always move to next card regardless of action
+    setCurrentIndex(prevIndex => prevIndex + 1);
+    translateX.value = 0;
+    rotate.value = 0;
+}, [currentIndex, requests, translateX, rotate]);
+
 
     const panGesture = Gesture.Pan()
         .onUpdate((event) => {

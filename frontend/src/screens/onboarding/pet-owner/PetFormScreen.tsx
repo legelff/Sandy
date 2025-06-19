@@ -8,6 +8,7 @@ import {
     Alert,
     TouchableOpacity,
     Image,
+    Switch,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { TextInput as PaperTextInput, Menu, Provider as PaperProvider, MD3LightTheme } from 'react-native-paper';
@@ -15,6 +16,7 @@ import Slider from '@react-native-community/slider';
 import * as ImagePicker from 'expo-image-picker';
 import { PlusCircle } from 'lucide-react-native';
 import { colors, spacing } from '../../../theme';
+import { useOnboardingStore, Pet } from '../../../store/onboardingStore';
 
 // Interface for form data remains the same
 export interface PetFormData {
@@ -26,6 +28,8 @@ export interface PetFormData {
     activitiesAndNeeds: string;
     energyLevel: number;
     comfortLevel: number;
+    vaccinations: boolean;
+    sterilized: boolean;
     photo1Url?: string;
     photo2Url?: string;
     photo3Url?: string;
@@ -40,6 +44,8 @@ const initialFormState: PetFormData = {
     activitiesAndNeeds: '',
     energyLevel: 5,
     comfortLevel: 5,
+    vaccinations: false,
+    sterilized: false,
     photo1Url: '',
     photo2Url: '',
     photo3Url: '',
@@ -136,7 +142,8 @@ const getBreedsForSpecies = (species: string): string[] => {
 
 const PetFormScreen = () => {
     const router = useRouter();
-    const params = useLocalSearchParams<{ petToEdit?: string; originalPetId?: string }>();
+    const params = useLocalSearchParams<{ petToEdit?: string; originalPetId?: string; fromAddPets?: string }>();
+    const { addPet, updatePet, pets } = useOnboardingStore();
 
     const [formData, setFormData] = useState<PetFormData>(initialFormState);
     const [isEditing, setIsEditing] = useState(false);
@@ -166,7 +173,7 @@ const PetFormScreen = () => {
     useEffect(() => {
         if (params.petToEdit) {
             try {
-                const petDataFromParams = JSON.parse(params.petToEdit) as PetFormData & { id: string; activities?: string; needs?: string; energyLevel?: string | number; comfortLevel?: string | number };
+                const petDataFromParams = JSON.parse(params.petToEdit) as PetFormData & { id: string; activities?: string; needs?: string; energyLevel?: string | number; comfortLevel?: string | number; vaccinations?: boolean; sterilized?: boolean };
 
                 let combinedActivitiesNeeds = '';
                 if (petDataFromParams.activitiesAndNeeds) {
@@ -194,6 +201,8 @@ const PetFormScreen = () => {
                     activitiesAndNeeds: combinedActivitiesNeeds,
                     energyLevel: energyLevel,
                     comfortLevel: comfortLevel,
+                    vaccinations: petDataFromParams.vaccinations === undefined ? false : petDataFromParams.vaccinations,
+                    sterilized: petDataFromParams.sterilized === undefined ? false : petDataFromParams.sterilized,
                     photo1Url: petDataFromParams.photo1Url || '',
                     photo2Url: petDataFromParams.photo2Url || '',
                     photo3Url: petDataFromParams.photo3Url || '',
@@ -216,7 +225,7 @@ const PetFormScreen = () => {
         }
     }, [params.petToEdit]);
 
-    const handleChange = (field: keyof PetFormData, value: string | number) => {
+    const handleChange = (field: keyof PetFormData, value: string | number | boolean) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
@@ -255,34 +264,24 @@ const PetFormScreen = () => {
     };
 
     const handleSubmit = () => {
-        if (!formData.name.trim()) {
-            Alert.alert("Validation Error", "Pet name is required.");
+        // Validate required fields for pet
+        if (!formData.name || !formData.species || !formData.age || !formData.breed || typeof formData.vaccinations !== 'boolean' || typeof formData.sterilized !== 'boolean') {
+            Alert.alert('Missing Information', 'Please fill in all required fields: Name, Species, Age, Breed, Vaccinations, and Sterilized.');
             return;
         }
-        if (!formData.species) {
-            Alert.alert("Validation Error", "Please select a species.");
-            return;
-        }
-        if (availableBreeds.length > 2 && !formData.breed && SPECIES_BREEDS[formData.species]) {
-            Alert.alert("Validation Error", "Please select a breed.");
-            return;
-        }
-        if (!formData.age.trim() || isNaN(Number(formData.age)) || Number(formData.age) < 0) {
-            Alert.alert("Validation Error", "Please enter a valid age (must be a non-negative number).");
-            return;
-        }
-        // Slider values are numbers, no specific validation needed here beyond type if already handled by component
-
-        if (isEditing && editingPetId) {
-            router.push({
-                pathname: '/onboarding/pet-owner/add-pets',
-                params: { updatedPetData: JSON.stringify(formData), petId: editingPetId, action: 'edit' },
-            });
+        const petData: Pet = {
+            ...formData,
+            id: isEditing && editingPetId ? editingPetId : `pet_${Date.now()}`,
+        };
+        if (isEditing) {
+            updatePet(petData);
         } else {
-            router.push({
-                pathname: '/onboarding/pet-owner/add-pets',
-                params: { newPetData: JSON.stringify(formData), action: 'add' },
-            });
+            addPet(petData);
+        }
+        if (params.fromAddPets) {
+            router.replace('/onboarding/pet-owner/add-pets');
+        } else {
+            router.push('/onboarding/pet-owner/add-pets');
         }
     };
 
@@ -423,6 +422,30 @@ const PetFormScreen = () => {
                             minimumTrackTintColor={colors.primary}
                             maximumTrackTintColor="#d3d3d3"
                             thumbTintColor={colors.primary}
+                        />
+                    </View>
+
+                    {/* Vaccination Switch */}
+                    <View className="flex-row justify-between items-center mb-md p-2.5 bg-white rounded-md border border-gray-200">
+                        <Text className="text-base text-text-dark">Vaccinated</Text>
+                        <Switch
+                            trackColor={{ false: '#767577', true: colors.primary }}
+                            thumbColor={formData.vaccinations ? colors.primary : '#f4f3f4'}
+                            ios_backgroundColor="#3e3e3e"
+                            onValueChange={(val) => handleChange('vaccinations', val)}
+                            value={formData.vaccinations}
+                        />
+                    </View>
+
+                    {/* Sterilization Switch */}
+                    <View className="flex-row justify-between items-center mb-lg p-2.5 bg-white rounded-md border border-gray-200">
+                        <Text className="text-base text-text-dark">Sterilized</Text>
+                        <Switch
+                            trackColor={{ false: '#767577', true: colors.primary }}
+                            thumbColor={formData.sterilized ? colors.primary : '#f4f3f4'}
+                            ios_backgroundColor="#3e3e3e"
+                            onValueChange={(val) => handleChange('sterilized', val)}
+                            value={formData.sterilized}
                         />
                     </View>
 

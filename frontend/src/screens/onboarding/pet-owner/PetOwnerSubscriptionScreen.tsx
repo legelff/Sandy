@@ -3,6 +3,7 @@ import { View, Text, Button, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { CheckCircle2, XCircle, PawPrint } from 'lucide-react-native';
 import { colors, spacing } from '../../../theme';
+import { useOnboardingStore } from '../../../store/onboardingStore';
 
 // Define feature names directly for clarity in the options
 const FEATURE_NAME = {
@@ -33,13 +34,13 @@ const SUBSCRIPTION_OPTIONS = [
     {
         id: 'basic',
         name: 'Basic',
-        price: '$5/mo',
+        price: '$0/mo',
         features: BASIC_PLAN_FEATURES,
     },
     {
         id: 'upgraded',
         name: 'Upgraded Basic',
-        price: '$10/mo',
+        price: '$5/mo',
         features: [
             { name: FEATURE_NAME.allBasic, included: true },
             { name: FEATURE_NAME.adFree, included: true }, // Upgraded is Ad-free
@@ -48,7 +49,7 @@ const SUBSCRIPTION_OPTIONS = [
     {
         id: 'premium',
         name: 'Premium',
-        price: '$15/mo',
+        price: '$9/mo',
         features: [
             { name: FEATURE_NAME.petLimitPremium, included: true },
             { name: FEATURE_NAME.speciesPremium, included: true },
@@ -63,6 +64,7 @@ const SUBSCRIPTION_OPTIONS = [
 const PetOwnerSubscriptionScreen = () => {
     const router = useRouter();
     const [selectedSubscription, setSelectedSubscription] = useState<string | null>(null);
+    const { setSubscriptionData } = useOnboardingStore();
 
     const handleSelectSubscription = (subscriptionId: string) => {
         setSelectedSubscription(subscriptionId);
@@ -70,10 +72,13 @@ const PetOwnerSubscriptionScreen = () => {
 
     const handleNext = () => {
         if (selectedSubscription) {
-            console.log('Selected Pet Owner Subscription:', selectedSubscription);
+            setSubscriptionData({ plan: selectedSubscription, hasSubscribed: true });
+            // console.log('Selected Pet Owner Subscription and saved to store:', selectedSubscription);
+
+            // Navigate to the add pets screen
             router.push('/onboarding/pet-owner/add-pets');
         } else {
-            console.log('Please select a subscription.');
+            // console.log('Please select a subscription.');
         }
     };
 

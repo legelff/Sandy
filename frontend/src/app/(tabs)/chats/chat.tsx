@@ -1,24 +1,32 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { View, StyleSheet, FlatList, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Modal } from 'react-native';
+import { View, StyleSheet, FlatList, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Image, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, IconButton, Button as PaperButton, Card, Chip, Title } from 'react-native-paper';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { colors } from '../../../theme';
 import { Camera as CameraIcon, Send, Briefcase, CheckCircle, XCircle } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import io from 'socket.io-client';
+import { useAuthStore } from '../../../store/useAuthStore';
+import * as FileSystem from 'expo-file-system';
+
+
+interface MessageContent {
+    type: 'text' | 'image' | 'booking_confirmation';
+    text?: string;
+    url?: string;
+    bookingDetails?: BookingConfirmationDetails;
+}
 
 interface Message {
     id: string;
-    text?: string;
-    imageUri?: string;
+    content: MessageContent;
     sender: 'user' | 'owner';
     timestamp: Date;
-    bookingDetails?: BookingConfirmationDetails;
-    messageType?: 'text' | 'image' | 'booking_confirmation';
 }
 
 interface BookingConfirmationDetails {
-    chatId?: string;
+    id: string;
     sitterName?: string;
     ownerName?: string;
     petNames: string[];
@@ -30,31 +38,47 @@ interface BookingConfirmationDetails {
     status: 'pending' | 'accepted' | 'declined';
 }
 
-// Dummy messages for a given chat (Pet Owner with Pet Sitter)
-const DUMMY_MESSAGES: Message[] = [
-    { id: 'm1', text: 'Hi John, can you look after Buddy next week?', sender: 'owner', timestamp: new Date(Date.now() - 1000 * 60 * 5), messageType: 'text' },
-    { id: 'm2', text: "Hi! Yes, I should be available. What dates?", sender: 'user', timestamp: new Date(Date.now() - 1000 * 60 * 4), messageType: 'text' },
-];
+const SOCKET_URL = `http://${process.env.EXPO_PUBLIC_METRO}:3000`;
+
+// Helper function to safely parse message content
+const parseMessageContent = (content: string): MessageContent => {
+    try {
+        // Try to parse as JSON first
+        const parsed = JSON.parse(content);
+        return parsed;
+    } catch (error) {
+        // If parsing fails, treat as plain text
+        console.error("Failed to parse message content, treating as text:", error);
+        return {
+            type: 'text',
+            text: content
+        };
+    }
+};
 
 const PetOwnerChatScreen: React.FC = () => {
     const router = useRouter();
     const navigation = useNavigation();
     const params = useLocalSearchParams();
 
-    const { chatId, userName: sitterNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
+    const { chatId, sitterName: sitterNameFromNav, petName, bookingConfirmation: bookingConfirmationString } = params as {
         chatId: string;
-        userName: string;
+        sitterName: string;
         petName?: string;
         bookingConfirmation?: string;
     };
 
     const sitterName = sitterNameFromNav || "Pet Sitter";
 
-    const [messages, setMessages] = useState<Message[]>(DUMMY_MESSAGES);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState<string>('');
     const [permission, requestPermission] = useCameraPermissions();
     const [showCamera, setShowCamera] = useState<boolean>(false);
+    const [cameraReady, setCameraReady] = useState<boolean>(false);
     const cameraRef = useRef<CameraView>(null);
+    const socketRef = useRef<any>(null);
+    const { user, token } = useAuthStore();
+    const imageUpload = useRef<string | null>(null);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -66,12 +90,15 @@ const PetOwnerChatScreen: React.FC = () => {
         if (bookingConfirmationString && typeof bookingConfirmationString === 'string') {
             try {
                 const bookingDetails: BookingConfirmationDetails = JSON.parse(bookingConfirmationString);
+                const content: MessageContent = {
+                    type: 'booking_confirmation',
+                    bookingDetails
+                };
                 const bookingMessage: Message = {
                     id: `booking-${Date.now()}`,
+                    content: content,
                     sender: 'owner',
                     timestamp: new Date(),
-                    bookingDetails: bookingDetails,
-                    messageType: 'booking_confirmation',
                 };
                 setMessages(prevMessages => [bookingMessage, ...prevMessages]);
             } catch (error) {
@@ -80,39 +107,192 @@ const PetOwnerChatScreen: React.FC = () => {
         }
     }, [bookingConfirmationString]);
 
+    useEffect(() => {
+        // Fetch messages from backend
+        if (!token || !user) return;
+        const fetchMessages = async () => {
+            try {
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${chatId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch messages');
+                const data = await res.json();
+                // Map backend data to Message[]
+                const mapped = data.map((m: any) => ({
+                    id: m.id.toString(),
+                    content: parseMessageContent(m.content),
+                    sender: m.sender_id === user.id ? 'owner' : 'user',
+                    timestamp: new Date(m.timestamp)
+                }));
+                setMessages(mapped.reverse());
+            } catch (e) {
+                setMessages([]);
+            }
+        };
+        fetchMessages();
+    }, [chatId, token, user]);
+
+    useEffect(() => {
+        // Connect to socket
+        if (!token || !user) return;
+        const connectSocket = async () => {
+            socketRef.current = io(SOCKET_URL, {
+                auth: { token },
+            });
+            socketRef.current.emit('join conversation', { conversationId: chatId });
+            socketRef.current.on('chat message', (msg: any) => {
+                setMessages(prev => [
+                    {
+                        id: msg.id.toString(),
+                        content: parseMessageContent(msg.content),
+                        sender: msg.sender_id === user.id ? 'owner' : 'user',
+                        timestamp: new Date(msg.timestamp),
+                    },
+                    ...prev,
+                ]);
+            });
+            socketRef.current.on('chat history', (payload: any) => {
+                const mapped = payload.messages.map((m: any) => ({
+                    id: m.id.toString(),
+                    content: parseMessageContent(m.content),
+                    sender: m.sender_id === user.id ? 'owner' : 'user',
+                    timestamp: new Date(m.timestamp),
+                }));
+                setMessages(mapped.reverse());
+            });
+        };
+        connectSocket();
+        return () => {
+            if (socketRef.current) socketRef.current.disconnect();
+        };
+    }, [chatId, token, user]);
+
     const handleSendMessage = () => {
         if (inputText.trim().length === 0) return;
-        const newMessage: Message = {
-            id: `msg${Date.now()}`,
-            text: inputText.trim(),
-            sender: 'owner',
-            timestamp: new Date(),
-            messageType: 'text',
-        };
-        setMessages(prevMessages => [newMessage, ...prevMessages]);
+
+        if (socketRef.current) {
+            const content: MessageContent = {
+                type: 'text',
+                text: inputText.trim()
+            };
+            socketRef.current.emit('chat message', {
+                conversationId: chatId,
+                content: JSON.stringify(content)
+            });
+        }
+
         setInputText('');
     };
 
-    const handleSendImage = (imageUri: string) => {
-        const newMessage: Message = {
-            id: `img${Date.now()}`,
-            imageUri,
-            sender: 'owner',
-            timestamp: new Date(),
-            messageType: 'image',
-        };
-        setMessages(prevMessages => [newMessage, ...prevMessages]);
-        setShowCamera(false);
+    const handleSendImage = async (imageUri: string, base64Data?: string) => {
+        return new Promise((resolve, reject) => {
+            try {
+                let formData = new FormData();
+
+                if (Platform.OS === 'web' && base64Data) {
+                    // Clean and validate base64 data
+                    const cleanBase64 = base64Data.split(';base64,').pop() || '';
+                    try {
+                        const byteCharacters = atob(cleanBase64);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                        formData.append('image', blob, 'chat-image.jpg');
+                    } catch (e) {
+                        console.error('Invalid base64:', e);
+                        throw new Error('Invalid image data');
+                    }
+                } else {
+                    // Native: use file URI
+                    formData.append('image', {
+                        uri: imageUri,
+                        type: 'image/jpeg',
+                        name: 'chat-image.jpg',
+                    } as any);
+                }
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/upload`); xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            if (data.url && socketRef.current) {
+                                // Ensure the URL uses the correct host and port
+                                const imageUrl = data.url.replace('localhost:8081', `${process.env.EXPO_PUBLIC_METRO}:3000`);
+                                const content: MessageContent = {
+                                    type: 'image',
+                                    url: imageUrl
+                                };
+                                socketRef.current.emit('chat message', {
+                                    conversationId: chatId,
+                                    content: JSON.stringify(content)
+                                });
+                                setShowCamera(false);
+                                resolve({ ...data, url: imageUrl });
+                            } else {
+                                throw new Error('Invalid response format');
+                            }
+                        } catch (e) {
+                            reject(new Error('Failed to parse response'));
+                        }
+                    } else {
+                        reject(new Error('Upload failed'));
+                    }
+                };
+
+                xhr.onerror = function () {
+                    reject(new Error('Network error'));
+                };
+
+                xhr.send(formData);
+            } catch (error) {
+                console.error('Error preparing upload:', error);
+                Alert.alert('Upload Failed', 'Could not prepare image for upload.');
+                setShowCamera(false);
+                reject(error);
+            }
+        }).catch(error => {
+            console.error('Error uploading image:', error);
+            Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
+            setShowCamera(false);
+        });
     };
 
-    const handleOpenBookingForm = () => {
-        router.push({
-            pathname: '/(tabs)/chats/bookingDetailsOwner',
-            params: {
-                chatId: chatId,
-                sitterName: sitterName
-            },
-        });
+    const handleOpenBookingForm = async () => {
+        if (!token || !user) return;
+        try {
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/${chatId.replace(/[^\d]/g, '')}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch conversation');
+            const messages = await res.json();
+            // Fetch conversation meta (user1_id, user2_id) from a separate endpoint or from the first message if available
+            // We'll assume you have an endpoint like /chat/conversation/:id
+            const convRes = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat/conversation/${chatId.replace(/[^\d]/g, '')}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!convRes.ok) throw new Error('Failed to fetch conversation meta');
+            const conversation = await convRes.json();
+            let sitterId;
+            if (conversation.user1_id === user.id) {
+                sitterId = conversation.user2_id;
+            } else {
+                sitterId = conversation.user1_id;
+            }
+            router.push({
+                pathname: '/(tabs)/chats/bookingDetailsOwner',
+                params: {
+                    chatId: chatId,
+                    sitterName: sitterName,
+                    sitterId: sitterId
+                },
+            });
+        } catch (err) {
+            Alert.alert('Error', 'Could not fetch conversation details.');
+        }
     };
 
     const handleOpenCamera = async () => {
@@ -128,50 +308,72 @@ const PetOwnerChatScreen: React.FC = () => {
     };
 
     const handleTakePicture = async () => {
-        if (cameraRef.current) {
+        if (cameraRef.current && cameraReady) {
             try {
-                const photo = await cameraRef.current.takePictureAsync({ quality: 0.5 });
-                if (photo?.uri) {
+                const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: Platform.OS === 'web' });
+                if (Platform.OS === 'web' && photo?.base64) {
+                    // Web: pass base64 data
+                    handleSendImage('', 'data:image/jpeg;base64,' + photo.base64);
+                } else if (photo?.uri && typeof photo.uri === 'string' && photo.uri.startsWith('file://')) {
                     handleSendImage(photo.uri);
+                } else if (photo?.base64) {
+                    // Native fallback (should not happen)
+                    const fileUri = FileSystem.cacheDirectory + 'chat-image.jpg';
+                    let base64Data = photo.base64;
+                    if (base64Data.startsWith('data:image')) {
+                        base64Data = base64Data.split(',')[1];
+                    }
+                    await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+                    handleSendImage(fileUri);
+                } else {
+                    console.warn('Camera did not return a file:// URI or base64:', photo);
+                    Alert.alert('Camera Error', 'Could not get a valid file URI for the photo.');
                 }
             } catch (error) {
-                console.error("Failed to take picture: ", error);
-                alert("Failed to take picture. Please try again.");
+                console.error('Failed to take picture:', error);
+                Alert.alert('Camera Error', error?.message || 'Failed to take picture.');
             }
+        } else {
+            Alert.alert('Camera not ready', 'Please wait for the camera to initialize.');
         }
     };
+
 
     const handleBookingResponse = (messageId: string, response: 'accepted' | 'declined') => {
         setMessages(prevMessages =>
             prevMessages.map(msg => {
-                if (msg.id === messageId && msg.bookingDetails && msg.sender === 'user') {
+                if (msg.id === messageId && msg.content.type === 'booking_confirmation' && msg.content.bookingDetails && msg.sender === 'user') {
                     return {
                         ...msg,
-                        bookingDetails: {
-                            ...msg.bookingDetails,
-                            status: response,
+                        content: {
+                            ...msg.content,
+                            bookingDetails: {
+                                ...msg.content.bookingDetails,
+                                status: response,
+                            },
                         },
                     };
                 }
                 return msg;
             })
         );
-        const responseText = `Booking ${response}.`;
-        const responseMessage: Message = {
-            id: `resp-${Date.now()}`,
-            text: responseText,
-            sender: 'owner',
-            timestamp: new Date(),
-            messageType: 'text',
+
+        const responseContent: MessageContent = {
+            type: 'text',
+            text: `Booking ${response}.`
         };
-        setMessages(prevMessages => [responseMessage, ...prevMessages]);
+
+        socketRef.current.emit('chat message', {
+            conversationId: chatId,
+            content: JSON.stringify(responseContent)
+        });
+
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isOwnerMessage = item.sender === 'owner';
-
-        if (item.messageType === 'booking_confirmation' && item.bookingDetails) {
-            const details = item.bookingDetails;
+        if (item.content.type === 'booking_confirmation' && item.content.bookingDetails) {
+            const details = item.content.bookingDetails;
             return (
                 <View style={[styles.messageBubble, isOwnerMessage ? styles.ownerMessage : styles.sitterMessage, styles.bookingCardContainer]}>
                     <Card style={styles.bookingCard}>
@@ -188,7 +390,7 @@ const PetOwnerChatScreen: React.FC = () => {
                                 ))}
                             </View>
                             <Text style={styles.bookingText}>Dates: {details.fromDate} to {details.toDate}</Text>
-                            <Text style={styles.bookingText}>Location: {details.location === 'owner_home' ? "Owner\'s Home" : details.location === 'sitter_home' ? "Sitter\'s Home" : details.location}</Text>
+                            <Text style={styles.bookingText}>Location: {details.location === 'owner_home' ? "Owner's Home" : details.location === 'sitter_home' ? "Sitter's Home" : details.location}</Text>
                             <Text style={styles.bookingText}>Package: {details.servicePackage}</Text>
                             <Text style={styles.bookingPrice}>Total: ${details.totalPrice.toFixed(2)}</Text>
 
@@ -219,14 +421,21 @@ const PetOwnerChatScreen: React.FC = () => {
 
         return (
             <View style={[styles.messageBubble, isOwnerMessage ? styles.ownerMessage : styles.sitterMessage]}>
-                {item.text ? (
+                {item.content.type === 'text' && item.content.text && (
                     <Text style={[styles.messageText, isOwnerMessage ? styles.ownerMessageText : styles.sitterMessageText]}>
-                        {item.text}
+                        {item.content.text}
                     </Text>
-                ) : null}
-                {item.imageUri ? (
-                    <Image source={{ uri: item.imageUri }} style={styles.chatImage} />
-                ) : null}
+                )}
+                {item.content.type === 'image' && item.content.url && (
+                    <Image
+                        source={{
+                            uri: item.content.url.startsWith('http')
+                                ? item.content.url
+                                : `http://${process.env.EXPO_PUBLIC_METRO}:3000${item.content.url}`
+                        }}
+                        style={styles.chatImage}
+                    />
+                )}
                 <Text style={styles.messageTimestamp}>
                     {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
@@ -250,6 +459,7 @@ const PetOwnerChatScreen: React.FC = () => {
                             facing={"back"}
                             flash={"off"}
                             autofocus="on"
+                            onCameraReady={() => setCameraReady(true)}
                         />
                         <View style={styles.cameraControls}>
                             <PaperButton onPress={() => setShowCamera(false)} mode="outlined" style={styles.cameraButton} labelStyle={{ color: colors.white }}>Cancel</PaperButton>
@@ -408,27 +618,19 @@ const styles = StyleSheet.create({
     captureButton: {
         backgroundColor: colors.white,
     },
-    bookingCardContainer: {
-        paddingVertical: 0,
-        paddingHorizontal: 0,
-        backgroundColor: 'transparent',
-        borderWidth: 0,
-    },
-    bookingCard: {
-        width: '100%',
-        elevation: 3,
-        backgroundColor: colors.white,
-    },
-    bookingTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 8,
+    bookingConfirmation: {
+        padding: 16,
+        borderRadius: 8,
+        backgroundColor: colors.background,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: colors.primary,
     },
     bookingText: {
         fontSize: 14,
-        color: colors.textDark,
-        marginBottom: 4,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: 8,
     },
     petChipsContainer_Chat: {
         flexDirection: 'row',
@@ -495,7 +697,23 @@ const styles = StyleSheet.create({
         color: colors.textSecondary,
         textAlign: 'center',
         marginTop: 10,
-    }
+    },
+    bookingCardContainer: {
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 10,
+    },
+    bookingCard: {
+        backgroundColor: colors.white,
+        elevation: 2,
+        borderRadius: 12,
+    },
+    bookingTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        color: colors.primary,
+    },
 });
 
-export default PetOwnerChatScreen; 
+export default PetOwnerChatScreen;

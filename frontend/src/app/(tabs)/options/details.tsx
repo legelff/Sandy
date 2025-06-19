@@ -5,34 +5,48 @@ import { Text, TextInput, RadioButton, Checkbox, Provider as PaperProvider, Card
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { colors } from '../../../theme';
 import { CalendarDays, MapPin, Briefcase, Star, Users } from 'lucide-react-native'; // Added Star and Users for rating and pets
+import { useAuthStore } from '../../../store/useAuthStore';
 
-// Dummy data - replace with actual data source later
-const USER_PETS = [
-    { id: '1', name: 'Buddy (Dog)' },
-    { id: '2', name: 'Lucy (Cat)' },
-    { id: '3', name: 'Charlie (Dog)' },
-];
 
 const SERVICE_PACKAGES = ['Basic', 'Extended']; // Should match search screen or be dynamic
 
 interface SitterDetails {
-    id: string;
-    sitterName: string;
-    distance: string;
-    rating: number;
-    selectedPets: string[]; // Array of pet names initially
-    fromDate: string;
-    toDate: string;
-    // For the form, we might need to adapt location and servicePackage structure
-    // based on how they are passed or if we need to fetch full sitter capabilities
+  id: string; // booking_id
+  sitterUserId: string;
+  sitterName: string;
+  distance: string;
+  rating: number;
+  selectedPets: string[]; // pet names
+  fromDate: string;
+  toDate: string;
+  servicePackage: string; // "Basic" | "Extended"
 }
+
+
 
 const SitterDetailsScreen: React.FC = () => {
     const router = useRouter();
+    const user = useAuthStore(state => state.user);
     const params = useLocalSearchParams();
-    const { sitterData } = params; // Expecting stringified JSON
-
     const [sitter, setSitter] = useState<SitterDetails | null>(null);
+
+
+    useEffect(() => {
+  if (params.sitterData && typeof params.sitterData === 'string') {
+    try {
+      const parsed = JSON.parse(params.sitterData);
+      setSitter(parsed);
+      setFromDate(parsed.fromDate);
+      setToDate(parsed.toDate);
+      setServicePackage(parsed.servicePackage || 'Basic');
+    } catch (e) {
+      console.error('Failed to parse sitterData:', e);
+    }
+  }
+}, [params.sitterData]);
+
+
+   const [userPets, setUserPets] = useState<{ id: string; name: string }[]>([]);
 
     // Form states, initialized from sitter data
     const [selectedPetIds, setSelectedPetIds] = useState<string[]>([]);
@@ -42,32 +56,33 @@ const SitterDetailsScreen: React.FC = () => {
     const [customLocation, setCustomLocation] = useState<string>('');
     const [servicePackage, setServicePackage] = useState<string>(SERVICE_PACKAGES[0]);
 
-    useEffect(() => {
-        if (sitterData && typeof sitterData === 'string') {
-            try {
-                const parsedSitter: SitterDetails = JSON.parse(sitterData);
-                setSitter(parsedSitter);
 
-                // Initialize form fields based on passed sitter data
-                // For selected pets, we need to map names back to IDs if USER_PETS is the source of truth
-                // This is a simplification; in a real app, you'd have pet objects or more robust ID mapping.
-                const initialPetIds = USER_PETS
-                    .filter(p => parsedSitter.selectedPets.includes(p.name))
-                    .map(p => p.id);
-                setSelectedPetIds(initialPetIds);
 
-                setFromDate(parsedSitter.fromDate);
-                setToDate(parsedSitter.toDate);
-                // Location and service package might need more complex logic if not directly passed
-                // For now, using defaults or what's available in SitterDetails
-                // setLocationOption(...); // Determine from sitter data if available
-                setServicePackage(SERVICE_PACKAGES[0]); // Or from sitter data if available
-            } catch (e) {
-                console.error("Failed to parse sitter data:", e);
-                // Handle error, e.g., navigate back or show message
-            }
-        }
-    }, [sitterData]);
+useEffect(() => {
+  const fetchPets = async () => {
+    try {
+      const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/search/owner?user_id=${user.id}`);
+      const data = await res.json();
+      const pets = data.pets.map((p: any) => ({ id: p.id.toString(), name: `${p.name} (${p.species})` }));
+
+      setUserPets(pets);
+
+      if (sitter?.selectedPets?.length) {
+        const preselectedIds = pets
+          .filter(p => sitter.selectedPets.some(name => p.name.startsWith(name))) // partial match by name
+          .map(p => p.id);
+        setSelectedPetIds(preselectedIds);
+      }
+    } catch (e) {
+      console.error('Failed to fetch pets:', e);
+    }
+  };
+  fetchPets();
+}, [sitter]);
+
+
+
+
 
     const togglePetSelection = (petId: string) => {
         setSelectedPetIds(prev =>
@@ -75,22 +90,43 @@ const SitterDetailsScreen: React.FC = () => {
         );
     };
 
-    const handleConfirmRequest = () => {
-        if (!sitter) return;
+    const handleConfirmRequest = async () => {
+        if (!sitter || !user?.id) return;
 
-        const updatedRequest = {
-            sitterId: sitter.id,
-            selectedPetIds,
-            fromDate,
-            toDate,
-            location: locationOption === 'custom' ? customLocation : locationOption,
-            servicePackage,
+        const payload = {
+            user_id: user.id, // from auth store
+            sitter_user_id: parseInt(sitter.sitterUserId), 
+            start_date: fromDate,
+            end_date: toDate,
+            selected_pets: selectedPetIds.map(id => parseInt(id)), // convert to numbers
+            street: customLocation || 'Lange Ridderstraat 44', // fallback if empty
+            city: 'Mechelen', // you can pass this from SearchScreen too
+            postcode: '2800', // hardcoded or passed
         };
-        console.log('Updated Request Criteria:', updatedRequest);
-        // Here you would typically call an API to update the request
-        // and then perhaps navigate back or to a confirmation screen.
-        router.back(); // Go back to the options list for now
-    };
+
+
+        console.log('Sending booking payload from details screen:', payload);
+
+        try {
+            const response = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/options/confirm`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error('Failed to confirm booking');
+
+            const data = await response.json();
+            console.log('✅ Booking confirmed:', data);
+            router.back(); // or show a success message
+        } catch (error) {
+            console.error('❌ Booking failed:', error);
+            alert('Failed to confirm your booking.');
+        }
+        };
+
 
     if (!sitter) {
         return (
@@ -131,7 +167,7 @@ const SitterDetailsScreen: React.FC = () => {
                                         <Text style={styles.cardTitleText}>Selected Pet(s)</Text>
                                     </View>
                                 </Title>
-                                {USER_PETS.map(pet => (
+                                {userPets.map(pet => (
                                     <Checkbox.Item
                                         key={pet.id}
                                         label={pet.name}

@@ -6,8 +6,10 @@ import { colors } from '../../theme';
 
 export interface ChatItem {
     id: string; // Unique ID for the chat
+    ownerName: string;
     sitterName: string;
     petName: string;
+    isOwner?: boolean; // Optional: true if the user is the owner, false if sitter
     // lastMessage?: string; // Optional: for future preview
     // timestamp?: string;   // Optional: for future sorting/display
     // unreadCount?: number; // Optional: for future notification badge
@@ -15,7 +17,7 @@ export interface ChatItem {
 
 interface ChatItemCardProps {
     chatItem: ChatItem;
-    onPress: (chatId: string, sitterName: string) => void;
+    onPress: (chatId: string, ownerName: string) => void;
 }
 
 /**
@@ -24,18 +26,17 @@ interface ChatItemCardProps {
  * @returns {React.ReactElement} The ChatItemCard component.
  */
 const ChatItemCard: React.FC<ChatItemCardProps> = ({ chatItem, onPress }) => {
-    return (
-        <TouchableOpacity onPress={() => onPress(chatItem.id, chatItem.sitterName)}>
-            <Card style={styles.card}>
-                <Card.Content style={styles.cardContent}>
-                    <View style={styles.infoContainer}>
-                        <Text style={styles.sitterName}>{chatItem.sitterName}</Text>
-                        <Text style={styles.petName}>({chatItem.petName})</Text>
-                    </View>
-                    <ChevronRight size={24} color={colors.primary} />
-                </Card.Content>
-            </Card>
-        </TouchableOpacity>
+    console.log(chatItem)
+    return (<TouchableOpacity onPress={() => onPress(chatItem.id, chatItem.isOwner ? chatItem.ownerName : chatItem.sitterName)}>
+        <Card style={styles.card}>
+            <Card.Content style={styles.cardContent}>
+                <View style={styles.infoContainer}>
+                    <Text style={styles.sitterName}>{chatItem.isOwner ? chatItem.ownerName : chatItem.sitterName}</Text>
+                </View>
+                <ChevronRight size={24} color={colors.primary} />
+            </Card.Content>
+        </Card>
+    </TouchableOpacity>
     );
 };
 

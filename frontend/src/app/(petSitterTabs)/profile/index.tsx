@@ -1,39 +1,66 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Title, Divider } from 'react-native-paper';
-import { UserCircle, MapPin, Mail, Edit3, ShieldCheck, Award } from 'lucide-react-native'; // Added ShieldCheck, Award for sitter specific info
+import { UserCircle, MapPin, Mail, Edit3, ShieldCheck, Award, LogOut, CalendarCheck2, DollarSign, CheckCircle, XCircle, BookOpenCheck } from 'lucide-react-native';
 import { colors } from '../../../theme';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../../store/useAuthStore';
 
-// Placeholder data for pet sitter user
-const DUMMY_SITTER_USER = {
-    profilePictureUrl: 'https://placehold.co/400x400?text=Sitter', // Sitter specific placeholder
-    name: "Sam Sitterson",
-    email: 'sam.sitter@example.com',
-    address: '456 Pet Street',
-    city: 'Careville',
-    postcode: 'CV456',
-    bio: "Experienced and loving pet sitter with 5+ years of experience. I treat every pet like my own! Certified in pet first aid.",
-    services: ["Dog Walking", "Overnight Sitting", "Cat Visits"],
-    serviceArea: "Careville and surrounding areas (15km radius)",
-    experienceLevel: "Expert (5+ years)",
-    isVerified: true,
-};
-
-/**
- * PetSitterProfileScreen is the main profile screen for pet sitters.
- */
 const PetSitterProfileScreen: React.FC = () => {
     const router = useRouter();
-    const [sitter, setSitter] = useState(DUMMY_SITTER_USER);
+    const { user, token } = useAuthStore();
+    const [profile, setProfile] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            if (!user || !token) return;
+            try {
+                setLoading(true);
+                const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/users/profile`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Failed to fetch profile');
+                const data = await res.json();
+                setProfile(data);
+            } catch (e) {
+                setProfile(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchProfile();
+    }, [user, token]);
 
     const handleEditProfile = () => {
         router.push({
-            pathname: '/(petSitterTabs)/profile/edit-profile', // Updated path
-            params: { userData: JSON.stringify(sitter) },
+            pathname: '/(petSitterTabs)/profile/edit-profile',
+            params: { userData: JSON.stringify(profile) },
         });
     };
+
+    const handleLogout = () => {
+        router.replace('/login');
+    };
+
+    if (loading || !profile) {
+        return (
+            <PaperProvider>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                        <ActivityIndicator size="large" color={colors.primary} />
+                        <Text style={{ marginTop: 16, color: colors.primary, fontWeight: 'bold' }}>Loading profile...</Text>
+                    </View>
+                </SafeAreaView>
+            </PaperProvider>
+        );
+    }
+
+    const roleInfo = profile.roleInfo || {};
+    const availability = profile.availability || [];
+    const isVerified = true; // You can add logic for verification if needed
+    const profilePictureUrl = profile.profilePictureUrl || 'https://placehold.co/400x400?text=Sitter';
 
     return (
         <PaperProvider>
@@ -41,14 +68,14 @@ const PetSitterProfileScreen: React.FC = () => {
                 <ScrollView style={styles.container}>
                     <View style={styles.profileHeader}>
                         <View style={styles.profileImageContainer}>
-                            {sitter.profilePictureUrl ? (
-                                <Image source={{ uri: sitter.profilePictureUrl }} style={styles.profileImage} />
+                            {profilePictureUrl ? (
+                                <Image source={{ uri: profilePictureUrl }} style={styles.profileImage} />
                             ) : (
                                 <UserCircle size={120} color={colors.primary} />
                             )}
                         </View>
-                        <Title style={styles.userName}>{sitter.name}</Title>
-                        {sitter.isVerified && (
+                        <Title style={styles.userName}>{profile.name}</Title>
+                        {isVerified && (
                             <View style={styles.verifiedBadge}>
                                 <ShieldCheck size={16} color={colors.white} />
                                 <Text style={styles.verifiedText}>Verified Sitter</Text>
@@ -58,44 +85,70 @@ const PetSitterProfileScreen: React.FC = () => {
                             <Edit3 size={18} color={colors.primary} />
                             <Text style={styles.editProfileButtonText}>Edit Profile</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity style={[styles.editProfileButton, styles.logoutButton]} onPress={handleLogout}>
+                            <LogOut size={18} color={colors.danger} />
+                            <Text style={[styles.editProfileButtonText, styles.logoutButtonText]}>Logout</Text>
+                        </TouchableOpacity>
                     </View>
 
                     <View style={styles.userInfoSection}>
                         <View style={styles.infoItem}>
                             <Mail size={20} color={colors.textDark} style={styles.infoIcon} />
-                            <Text style={styles.infoText}>{sitter.email}</Text>
+                            <Text style={styles.infoText}>{profile.email}</Text>
                         </View>
                         <Divider style={styles.divider} />
                         <View style={styles.infoItem}>
                             <MapPin size={20} color={colors.textDark} style={styles.infoIcon} />
-                            <Text style={styles.infoText}>{`${sitter.address}, ${sitter.city}, ${sitter.postcode}`}</Text>
+                            <Text style={styles.infoText}>{`${profile.street}, ${profile.city}, ${profile.postcode}`}</Text>
                         </View>
                     </View>
 
-                    {/* Sitter Specific Information Section */}
+                    {/* Sitter Subscription & Experience */}
                     <View style={styles.sitterInfoSection}>
-                        <Title style={styles.sectionTitle}>About Me</Title>
-                        <Text style={styles.bioText}>{sitter.bio}</Text>
-                        <Divider style={styles.divider} />
-
-                        <Title style={styles.subSectionTitle}>Services Offered</Title>
-                        {sitter.services.map((service, index) => (
-                            <Text key={index} style={styles.serviceItem}>- {service}</Text>
-                        ))}
-                        <Divider style={styles.divider} />
-
-                        <Title style={styles.subSectionTitle}>Service Area</Title>
-                        <Text style={styles.infoText}>{sitter.serviceArea}</Text>
-                        <Divider style={styles.divider} />
-
+                        <Title style={styles.sectionTitle}>Subscription & Experience</Title>
+                        <View style={styles.infoItem}>
+                            <BookOpenCheck size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Subscription: {roleInfo.subscription_name || '-'}</Text>
+                        </View>
                         <View style={styles.infoItem}>
                             <Award size={20} color={colors.textDark} style={styles.infoIcon} />
-                            <Text style={styles.infoText}>Experience: {sitter.experienceLevel}</Text>
+                            <Text style={styles.infoText}>Experience: {roleInfo.experience_years ? `${roleInfo.experience_years} years` : '-'}</Text>
                         </View>
+                        {roleInfo.personality_and_motivation && (
+                            <View style={styles.infoItem}>
+                                <Text style={styles.infoText}>{roleInfo.personality_and_motivation}</Text>
+                            </View>
+                        )}
+                        <Divider style={styles.divider} />
+                        <View style={styles.infoItem}>
+                            <DollarSign size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Booking Fee: {roleInfo.booking_fee ? `€${roleInfo.booking_fee}` : '-'}</Text>
+                        </View>
+                        <View style={styles.infoItem}>
+                            <CheckCircle size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Insurance: {roleInfo.has_insurance ? 'Yes' : 'No'}</Text>
+                        </View>
+                        <View style={styles.infoItem}>
+                            <CheckCircle size={20} color={colors.textDark} style={styles.infoIcon} />
+                            <Text style={styles.infoText}>Training: {roleInfo.has_training ? 'Yes' : 'No'}</Text>
+                        </View>
+                        <Divider style={styles.divider} />
                     </View>
 
-                    {/* Removed Pets Section */}
-
+                    {/* Sitter Availability */}
+                    <View style={styles.sitterInfoSection}>
+                        <Title style={styles.sectionTitle}>Availability</Title>
+                        {availability.length > 0 ? (
+                            availability.map((slot: any, idx: number) => (
+                                <View key={idx} style={styles.infoItem}>
+                                    <CalendarCheck2 size={18} color={colors.primary} style={styles.infoIcon} />
+                                    <Text style={styles.infoText}>{slot.day_of_week}: {slot.start_time?.slice(0, 5)} - {slot.end_time?.slice(0, 5)}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            <Text style={styles.infoText}>No availability set.</Text>
+                        )}
+                    </View>
                 </ScrollView>
             </SafeAreaView>
         </PaperProvider>
@@ -166,6 +219,13 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontSize: 14,
         fontWeight: '600',
+    },
+    logoutButton: {
+        backgroundColor: colors.danger + '20',
+        marginTop: 10, // Add some space above the logout button
+    },
+    logoutButtonText: {
+        color: colors.danger,
     },
     userInfoSection: {
         backgroundColor: '#fff',

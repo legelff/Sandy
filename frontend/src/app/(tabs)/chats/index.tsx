@@ -1,33 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Text as RNText } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, Text, Title } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import ChatItemCard, { ChatItem } from '../../../components/chats/ChatItemCard'; // Adjusted path
 import { colors } from '../../../theme'; // Adjusted path
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useFocusEffect } from '@react-navigation/native';
 
-// Placeholder data for chats
-const DUMMY_CHATS: ChatItem[] = [
-    {
-        id: 'chat1',
-        sitterName: 'Alice Wonderland',
-        petName: 'Buddy',
-    },
-    {
-        id: 'chat2',
-        sitterName: 'Bob The Builder',
-        petName: 'Lucy',
-    },
-    {
-        id: 'chat3',
-        sitterName: 'Diana Prince',
-        petName: 'Charlie',
-    },
-];
-
-const ChatsListScreen: React.FC = () => { // Renamed to ChatsListScreen
+const ChatsListScreen: React.FC = () => {
     const router = useRouter();
-    const [chats, setChats] = useState<ChatItem[]>(DUMMY_CHATS);
+    const [chats, setChats] = useState<ChatItem[]>([]);
+    const { user, token } = useAuthStore();
+
+    const fetchChats = useCallback(async () => {
+        if (!token || !user) return;
+        try {
+            const res = await fetch(`http://${process.env.EXPO_PUBLIC_METRO}:3000/chat`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch chats');
+            const data = await res.json();
+            // Map backend data to ChatItem[]
+            const mappedChats = data.map((c: any) => ({
+                id: c.id.toString(),
+                ownerName: c.user1_id === user.id ? c.user2_name : c.user1_name,
+                sitterName: c.user1_id === user.id ? c.user1_name : c.user2_name,
+                petName: c.pet_name || '',
+                isOwner: true,
+            }));
+            setChats(mappedChats);
+        } catch (e) {
+            setChats([]);
+        }
+    }, [token, user]);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchChats();
+        }, [fetchChats])
+    );
 
     const handleNavigateToChat = (chatId: string, sitterName: string, petName?: string) => {
         router.push({
@@ -116,4 +128,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default ChatsListScreen; // Renamed export 
+export default ChatsListScreen; // Renamed export

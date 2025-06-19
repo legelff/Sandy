@@ -41,7 +41,33 @@ const PORT = process.env.PORT
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-app.use(cors());
+
+// CORS configuration
+const allowedOrigins = [
+  /^(http:\/\/localhost)(:\d+)?$/, // Allows http://localhost:anyport
+  /^(http:\/\/127\.0\.0\.1)(:\d+)?$/, // Allows http://127.0.0.1:anyport
+  /^(http:\/\/192\.168\.1\.\d+)(:\d+)?$/, // Allows http://192.168.1.XXX:anyport (oh no a security vulnerability! (idc))
+  // If your Expo app sends an Origin header like exp://... you might need to handle that,
+  // but typically HTTP requests will have an http origin.
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(regex => regex.test(origin))) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS: request from origin ${origin} blocked.`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true, // If you plan to use cookies or authorization headers
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
