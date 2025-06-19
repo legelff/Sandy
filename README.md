@@ -103,7 +103,7 @@ To get a copy of the project up and running on your local machine for developmen
     ```
     This will open Expo Developer Tools in your browser. ~~You can then run the app on an emulator/simulator or scan the QR code with the Expo Go app on your physical device.~~.
 
-7. **Set up Frontend Environment Variables**
+7. **Set up Frontend Environment Variables:**
    Create a `.env` file in your `frontend` directory and add the following:
     ```
     EXPO_PUBLIC_METRO = xxx
